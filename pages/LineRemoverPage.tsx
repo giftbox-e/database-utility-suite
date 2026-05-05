@@ -197,8 +197,8 @@ const LineRemoverPage: React.FC = () => {
                         <p className="pt-2 text-gray-300"><strong>Example:</strong> Use "Remove Lines" -&gt; Remove 1 Line Above when matching "Type: Trash" to remove both the item name and type lines.</p>
                     </div>
                 </details>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="flex flex-col">
                         <div>
                             <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center space-x-2">
@@ -250,7 +250,7 @@ const LineRemoverPage: React.FC = () => {
                     
                     {mode === 'remove' && (
                         <>
-                            <div className={`md:col-span-1 space-y-4`}>
+                            <div className={`space-y-4`}>
                                 <fieldset>
                                     <legend className="text-sm font-medium text-gray-300 mb-2 flex items-center text-center justify-center space-x-2">
                                         <span>Top Line Removal</span>
@@ -290,7 +290,7 @@ const LineRemoverPage: React.FC = () => {
 
                     {mode === 'maintain' && (
                          <>
-                            <div className={`md:col-span-1 space-y-4`}>
+                            <div className={`space-y-4`}>
                                 <fieldset>
                                     <legend className="text-sm font-medium text-gray-300 mb-2 flex items-center text-center justify-center space-x-2">
                                         <span>Top Line Maintain</span>

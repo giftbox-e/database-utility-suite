@@ -217,11 +217,11 @@ const App: React.FC = () => {
                         <Route path="/id-block-transformer" element={<IDBlockTransformerPage />} />
                     </Routes>
                 </div>
-                <footer className="w-full pb-3 pt-1 text-center text-xs text-gray-500 flex-shrink-0">
-                    <p>
-                        Created by <a href="https://github.com/giftbox-e/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white hover:underline transition-colors">giftbox-e</a>
-                        <span className="mx-2">|</span>
-                        If this suite helps you, <a href="https://paypal.me/GiftBoxStudio" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white hover:underline transition-colors">consider buying me a coffee ☕</a>
+                <footer className="w-full pb-3 pt-1 text-center text-xs text-gray-500 flex-shrink-0 px-4">
+                    <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                        <span>Created by <a href="https://github.com/giftbox-e/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white hover:underline transition-colors">giftbox-e</a></span>
+                        <span className="hidden sm:inline">|</span>
+                        <span>If this suite helps you, <a href="https://paypal.me/GiftBoxStudio" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white hover:underline transition-colors">consider buying me a coffee ☕</a></span>
                     </p>
                 </footer>
             </main>

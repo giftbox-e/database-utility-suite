@@ -354,8 +354,8 @@ const ComparatorPage: React.FC = () => {
                 </div>
             </details>
 
-            <header className="flex-shrink-0 flex items-center p-2 mb-2 bg-gray-800 border border-gray-700 rounded-lg shadow-md justify-center">
-                <div className="flex items-center gap-4">
+            <header className="flex-shrink-0 p-3 mb-2 bg-gray-800 border border-gray-700 rounded-lg shadow-md">
+                <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
                     <div className="flex items-center"><input type="checkbox" id="realtime-comparison" checked={realTimeComparison} onChange={(e) => setRealTimeComparison(e.target.checked)} className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer" /><label htmlFor="realtime-comparison" className="ml-2 text-sm font-medium text-gray-300 cursor-pointer">Real-time</label></div>
                     {!realTimeComparison && (<button onClick={handleCompare} className="px-3 py-1 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors">Compare</button>)}
                     <span className="text-sm text-indigo-400 min-h-[20px] w-32 text-center">{copyStatus}</span>
@@ -366,8 +366,8 @@ const ComparatorPage: React.FC = () => {
                 </div>
             </header>
 
-            <div className="flex-grow grid grid-cols-[1fr_auto_1fr] gap-4 min-h-0">
-                <div className="flex flex-col min-h-0">
+            <div className="flex-grow flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] gap-4 min-h-0 overflow-y-auto lg:overflow-hidden">
+                <div className="flex flex-col min-h-0 flex-1 lg:flex-auto min-h-[300px] lg:min-h-0">
                     <div className="flex-shrink-0 flex justify-between items-center mb-2 px-1">
                         <h3 className="font-semibold text-gray-200 truncate">File A: <span className="text-gray-400 font-normal">{fileAName}</span></h3>
                         <div className="flex items-center gap-2">
@@ -379,12 +379,12 @@ const ComparatorPage: React.FC = () => {
                     </div>
                     <EditorPanel content={fileAContent} onContentChange={setFileAContent} onSelectionChange={setSelectionA} diffLines={viewA} isDragging={isDraggingA} setIsDragging={setIsDraggingA} dropHandler={(e) => handleDrop(e, setFileAContent, setFileAName)} onScroll={(e) => onScroll('A', e)} setScrollTop={(top, left) => setScroll(scrollARef, top, left)} />
                 </div>
-                <div className="w-2.5 bg-gray-800 rounded-full overflow-hidden pointer-events-none self-center h-[calc(100%-20px)]">
+                <div className="hidden lg:block w-2.5 bg-gray-800 rounded-full overflow-hidden pointer-events-none self-center h-[calc(100%-20px)]">
                     <div className="h-full" style={{ transform: `scaleY(${Math.min(1, 500 / minimap.length)})`}}>
                     {minimap.map((type, i) => ( <div key={i} className={`h-0.5 ${ type === 'added' ? 'bg-green-500' : type === 'removed' ? 'bg-red-500' : 'bg-transparent' }`} /> ))}
                     </div>
                 </div>
-                <div className="flex flex-col min-h-0">
+                <div className="flex flex-col min-h-0 flex-1 lg:flex-auto min-h-[300px] lg:min-h-0 pb-4 lg:pb-0">
                      <div className="flex-shrink-0 flex justify-between items-center mb-2 px-1">
                         <h3 className="font-semibold text-gray-200 truncate">File B: <span className="text-gray-400 font-normal">{fileBName}</span></h3>
                         <div className="flex items-center gap-2">
