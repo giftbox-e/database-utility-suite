@@ -3,6 +3,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { AdvancedLinesDiffComputer, LinesDiff } from 'vscode-diff';
 import { UploadIcon, DownloadIcon, CopyIcon, PencilAltIcon, ArrowRightIcon, ArrowLeftIcon } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
+import { ExpandableDescription } from '../components/ExpandableDescription';
 
 type DiffLineType = 'common' | 'added' | 'removed';
 type DiffViewLine = { type: DiffLineType | 'empty'; line: string };
@@ -18,6 +19,8 @@ const createDownload = (filename: string, content: string) => {
     element.click();
     document.body.removeChild(element);
 };
+
+import { useSyncedResize } from '../hooks/useSyncedResize';
 
 const getInitialState = <T,>(key: string, defaultValue: T): T => {
     try {
@@ -38,6 +41,7 @@ const getInitialState = <T,>(key: string, defaultValue: T): T => {
 
 // --- Editor Panel Component ---
 const EditorPanel: React.FC<{
+    containerRef?: React.RefObject<HTMLDivElement>;
     content: string;
     onContentChange: (newContent: string) => void;
     onSelectionChange: (range: SelectionRange) => void;
@@ -48,7 +52,7 @@ const EditorPanel: React.FC<{
     onScroll: (e: React.UIEvent<HTMLTextAreaElement>) => void;
     setScrollTop: (top: number, left: number) => void;
 }> = ({
-    content, onContentChange, onSelectionChange, diffLines, isDragging, setIsDragging,
+    containerRef, content, onContentChange, onSelectionChange, diffLines, isDragging, setIsDragging,
     dropHandler, onScroll, setScrollTop
 }) => {
     const highlightsRef = useRef<HTMLDivElement>(null);
@@ -113,7 +117,9 @@ const EditorPanel: React.FC<{
 
     return (
         <div 
-            className={`w-full h-full bg-gray-900 border rounded-md shadow-sm font-mono text-sm flex overflow-hidden ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-700'}`}
+            ref={containerRef}
+            className={`flex-grow w-full min-h-[200px] bg-gray-900 border rounded-md shadow-sm font-mono text-sm flex overflow-hidden resize-y ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-700'}`}
+            style={{ minHeight: '200px' }}
             onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragOver={(e) => e.preventDefault()}
             onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -156,6 +162,7 @@ const EditorPanel: React.FC<{
 
 // --- Main Comparator Page Component ---
 const ComparatorPage: React.FC = () => {
+    const { leftRef, rightRef } = useSyncedResize();
     const [fileAContent, setFileAContent] = useState<string>(() => getInitialState('comparator_fileAContent', ''));
     const [fileBContent, setFileBContent] = useState<string>(() => getInitialState('comparator_fileBContent', ''));
     const [fileAName, setFileAName] = useState<string>(() => getInitialState('comparator_fileAName', 'file_a.txt'));
@@ -327,22 +334,13 @@ const ComparatorPage: React.FC = () => {
     const handleCopy = useCallback((content: string, panel: string) => { if (!content) return; navigator.clipboard.writeText(content).then(() => { setCopyStatus(`Copied Panel ${panel}`); setTimeout(() => setCopyStatus(''), 2000); }); }, []);
 
     return (
-        <div className="flex flex-col h-full bg-gray-800 rounded-lg p-2 sm:p-4 shadow-2xl border border-gray-700">
+        <div className="flex flex-col bg-gray-800 rounded-lg p-2 sm:p-4 shadow-2xl border border-gray-700 flex-grow min-h-max">
             <div className="flex items-center space-x-2 mb-2 px-2">
-                <h2 className="text-xl font-bold text-white">Comparator</h2>
+                <h2 className="text-xl font-bold text-white">Comparator (Inoperable)</h2>
                 <Tooltip text="Compare two versions of a file side-by-side." />
             </div>
 
-            <details className="flex-shrink-0 group bg-gray-900/40 border border-gray-700/50 rounded-lg mb-4">
-                <summary className="flex cursor-pointer items-center justify-between p-3 text-sm font-medium text-gray-300 hover:text-white transition-colors">
-                    <span>Compare, sync, and merge differences between two files. <span className="text-indigo-400">See more...</span></span>
-                    <span className="ml-4 flex-shrink-0 transform transition-transform duration-200 group-open:rotate-180">
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </span>
-                </summary>
-                <div className="p-3 pt-0 text-sm text-gray-400 space-y-2 border-t border-gray-700/50 mt-1">
+            <ExpandableDescription title={<>Compare, sync, and merge differences between two files.</>}>
                     <p>
                         A powerful diff tool to spot differences and merge changes. Drag and drop two files (A and B) or paste content to see side-by-side differences.
                     </p>
@@ -351,23 +349,24 @@ const ComparatorPage: React.FC = () => {
                         <li><strong>Sync Actions:</strong> Use the green arrows (<ArrowLeftIcon className="h-3 w-3 inline" /> / <ArrowRightIcon className="h-3 w-3 inline" />) to add missing lines across files. Use the orange pencil (<PencilAltIcon className="h-3 w-3 inline m-0" />) to overwrite lines with matching keys.</li>
                         <li><strong>Sub-selection:</strong> If you highlight specific text in either editor, the sync actions will only apply to the selected lines. Otherwise, it will apply to the entire file.</li>
                     </ul>
-                </div>
-            </details>
+            </ExpandableDescription>
 
             <header className="flex-shrink-0 p-3 mb-2 bg-gray-800 border border-gray-700 rounded-lg shadow-md">
                 <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
                     <div className="flex items-center"><input type="checkbox" id="realtime-comparison" checked={realTimeComparison} onChange={(e) => setRealTimeComparison(e.target.checked)} className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer" /><label htmlFor="realtime-comparison" className="ml-2 text-sm font-medium text-gray-300 cursor-pointer">Real-time</label></div>
                     {!realTimeComparison && (<button onClick={handleCompare} className="px-3 py-1 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors">Compare</button>)}
-                    <span className="text-sm text-indigo-400 min-h-[20px] w-32 text-center">{copyStatus}</span>
-                    <Tooltip text="Add Missing Lines to A: Adds lines from B that don't exist in A. Applies to highlighted lines or whole file."><button onClick={() => handleApplyChanges('B', 'add')} className="p-2 rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"><ArrowLeftIcon /></button></Tooltip>
-                    <Tooltip text="Overwrite Lines in A: Overwrites lines in A with lines from B based on matching keys. Applies to highlighted lines or whole file."><button onClick={() => handleApplyChanges('B', 'overwrite')} className="p-2 rounded-md text-white bg-amber-600 hover:bg-amber-700 transition-colors"><PencilAltIcon className="h-5 w-5 m-0" /></button></Tooltip>
-                    <Tooltip text="Overwrite Lines in B: Overwrites lines in B with lines from A based on matching keys. Applies to highlighted lines or whole file."><button onClick={() => handleApplyChanges('A', 'overwrite')} className="p-2 rounded-md text-white bg-amber-600 hover:bg-amber-700 transition-colors"><PencilAltIcon className="h-5 w-5 m-0" /></button></Tooltip>
-                    <Tooltip text="Add Missing Lines to B: Adds lines from A that don't exist in B. Applies to highlighted lines or whole file."><button onClick={() => handleApplyChanges('A', 'add')} className="p-2 rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"><ArrowRightIcon /></button></Tooltip>
+                    <span className="text-sm text-indigo-400 min-h-[20px] w-24 text-center truncate">{copyStatus}</span>
+                    <div className="flex items-center gap-2 border-l border-gray-600 pl-3">
+                        <Tooltip text="Add Missing Lines to A: Adds lines from B that don't exist in A. Applies to highlighted lines or whole file."><button onClick={() => handleApplyChanges('B', 'add')} className="p-2 rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"><ArrowLeftIcon /></button></Tooltip>
+                        <Tooltip text="Overwrite Lines in A: Overwrites lines in A with lines from B based on matching keys. Applies to highlighted lines or whole file."><button onClick={() => handleApplyChanges('B', 'overwrite')} className="p-2 rounded-md text-white bg-amber-600 hover:bg-amber-700 transition-colors"><PencilAltIcon className="h-5 w-5 m-0" /></button></Tooltip>
+                        <Tooltip text="Overwrite Lines in B: Overwrites lines in B with lines from A based on matching keys. Applies to highlighted lines or whole file."><button onClick={() => handleApplyChanges('A', 'overwrite')} className="p-2 rounded-md text-white bg-amber-600 hover:bg-amber-700 transition-colors"><PencilAltIcon className="h-5 w-5 m-0" /></button></Tooltip>
+                        <Tooltip text="Add Missing Lines to B: Adds lines from A that don't exist in B. Applies to highlighted lines or whole file."><button onClick={() => handleApplyChanges('A', 'add')} className="p-2 rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"><ArrowRightIcon /></button></Tooltip>
+                    </div>
                 </div>
             </header>
 
-            <div className="flex-grow flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] gap-4 min-h-0 overflow-y-auto lg:overflow-hidden">
-                <div className="flex flex-col min-h-0 flex-1 lg:flex-auto min-h-[300px] lg:min-h-0">
+            <div className="flex-1 min-h-[500px] lg:min-h-[400px] flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] gap-4 pb-4">
+                <div className="flex flex-col relative lg:min-h-0">
                     <div className="flex-shrink-0 flex justify-between items-center mb-2 px-1">
                         <h3 className="font-semibold text-gray-200 truncate">File A: <span className="text-gray-400 font-normal">{fileAName}</span></h3>
                         <div className="flex items-center gap-2">
@@ -377,14 +376,14 @@ const ComparatorPage: React.FC = () => {
                              <input ref={fileInputARef} type="file" className="hidden" onChange={(e) => handleFileChange(e, setFileAContent, setFileAName)} />
                         </div>
                     </div>
-                    <EditorPanel content={fileAContent} onContentChange={setFileAContent} onSelectionChange={setSelectionA} diffLines={viewA} isDragging={isDraggingA} setIsDragging={setIsDraggingA} dropHandler={(e) => handleDrop(e, setFileAContent, setFileAName)} onScroll={(e) => onScroll('A', e)} setScrollTop={(top, left) => setScroll(scrollARef, top, left)} />
+                    <EditorPanel containerRef={leftRef as React.RefObject<HTMLDivElement>} content={fileAContent} onContentChange={setFileAContent} onSelectionChange={setSelectionA} diffLines={viewA} isDragging={isDraggingA} setIsDragging={setIsDraggingA} dropHandler={(e) => handleDrop(e, setFileAContent, setFileAName)} onScroll={(e) => onScroll('A', e)} setScrollTop={(top, left) => setScroll(scrollARef, top, left)} />
                 </div>
                 <div className="hidden lg:block w-2.5 bg-gray-800 rounded-full overflow-hidden pointer-events-none self-center h-[calc(100%-20px)]">
                     <div className="h-full" style={{ transform: `scaleY(${Math.min(1, 500 / minimap.length)})`}}>
                     {minimap.map((type, i) => ( <div key={i} className={`h-0.5 ${ type === 'added' ? 'bg-green-500' : type === 'removed' ? 'bg-red-500' : 'bg-transparent' }`} /> ))}
                     </div>
                 </div>
-                <div className="flex flex-col min-h-0 flex-1 lg:flex-auto min-h-[300px] lg:min-h-0 pb-4 lg:pb-0">
+                <div className="flex flex-col relative lg:min-h-0">
                      <div className="flex-shrink-0 flex justify-between items-center mb-2 px-1">
                         <h3 className="font-semibold text-gray-200 truncate">File B: <span className="text-gray-400 font-normal">{fileBName}</span></h3>
                         <div className="flex items-center gap-2">
@@ -394,7 +393,7 @@ const ComparatorPage: React.FC = () => {
                              <input ref={fileInputBRef} type="file" className="hidden" onChange={(e) => handleFileChange(e, setFileBContent, setFileBName)} />
                         </div>
                     </div>
-                    <EditorPanel content={fileBContent} onContentChange={setFileBContent} onSelectionChange={setSelectionB} diffLines={viewB} isDragging={isDraggingB} setIsDragging={setIsDraggingB} dropHandler={(e) => handleDrop(e, setFileBContent, setFileBName)} onScroll={(e) => onScroll('B', e)} setScrollTop={(top, left) => setScroll(scrollBRef, top, left)} />
+                    <EditorPanel containerRef={rightRef as React.RefObject<HTMLDivElement>} content={fileBContent} onContentChange={setFileBContent} onSelectionChange={setSelectionB} diffLines={viewB} isDragging={isDraggingB} setIsDragging={setIsDraggingB} dropHandler={(e) => handleDrop(e, setFileBContent, setFileBName)} onScroll={(e) => onScroll('B', e)} setScrollTop={(top, left) => setScroll(scrollBRef, top, left)} />
                 </div>
             </div>
         </div>

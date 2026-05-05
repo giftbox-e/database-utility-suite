@@ -61,6 +61,7 @@ export const idBlockTransformerScript = `
         keywordsText, 
         blockStartFormat, 
         applyToBlock,
+        includeIndentation,
         sourceKey, 
         condition, 
         conditionValue, 
@@ -93,17 +94,32 @@ export const idBlockTransformerScript = `
 
           let isBlockStart = false;
           let matchedKeyword = null;
+          let activeStartIndentation = getIndentation(line);
+
           for (const kw of keywords) {
               const expectedFormat = blockStartFormat ? blockStartFormat.replace('{ID}', kw) : kw;
-              if (line.includes(expectedFormat)) {
-                  isBlockStart = true;
-                  matchedKeyword = kw;
-                  break;
+              
+              if (includeIndentation) {
+                  const formatIndentation = getIndentation(expectedFormat);
+                  const trimmedFormat = expectedFormat.trim();
+                  
+                  if (getIndentation(line) === formatIndentation && line.trim().startsWith(trimmedFormat)) {
+                      isBlockStart = true;
+                      matchedKeyword = kw;
+                      activeStartIndentation = formatIndentation;
+                      break;
+                  }
+              } else {
+                  if (line.includes(expectedFormat)) {
+                      isBlockStart = true;
+                      matchedKeyword = kw;
+                      break;
+                  }
               }
           }
 
           if (isBlockStart) {
-              const startIndentation = getIndentation(line);
+              const startIndentation = activeStartIndentation;
               const blockStartIndex = i;
               let blockEndIndex = i + 1;
               while (blockEndIndex < lines.length) {

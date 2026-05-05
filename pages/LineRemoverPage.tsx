@@ -2,6 +2,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { lineRemoverWorkerScript } from '../workers/lineRemoverScript';
 import { CopyIcon, DownloadIcon, UploadIcon, LoadingSpinner, TrashIcon } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
+import { ExpandableDescription } from '../components/ExpandableDescription';
+import { useSyncedResize } from '../hooks/useSyncedResize';
 
 type Mode = 'remove' | 'maintain' | 'addText';
 type AddPosition = 'start' | 'end' | 'before' | 'after';
@@ -34,6 +36,8 @@ const LineRemoverPage: React.FC = () => {
     const [copyStatus, setCopyStatus] = useState<string>('Copy Output');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
+    
+    const { leftRef, rightRef } = useSyncedResize();
 
     const [mode, setMode] = useState<Mode>(() => getInitialState('lineRemover_mode', 'remove'));
     const [matchMode, setMatchMode] = useState<MatchMode>(() => getInitialState('lineRemover_matchMode', 'contains'));
@@ -169,23 +173,14 @@ const LineRemoverPage: React.FC = () => {
     };
 
     return (
-        <div className="bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-6 border border-gray-700 flex flex-col h-full">
+        <div className="bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-6 border border-gray-700 flex flex-col flex-grow min-h-max">
             <div className="flex-shrink-0 mb-6 p-3 sm:p-4 border border-gray-700 rounded-lg bg-gray-800">
                 <div className="flex items-center space-x-2 mb-3">
                     <h2 className="text-xl font-bold text-white">Line Processor</h2>
                     <Tooltip text="A flexible tool for line-based operations." />
                 </div>
                 
-                <details className="group bg-gray-900/40 border border-gray-700/50 rounded-lg mb-4">
-                    <summary className="flex cursor-pointer items-center justify-between p-3 text-sm font-medium text-gray-300 hover:text-white transition-colors">
-                        <span>Remove, keep, or alter text lines containing specific keywords. <span className="text-indigo-400">See more...</span></span>
-                        <span className="ml-4 flex-shrink-0 transform transition-transform duration-200 group-open:rotate-180">
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </span>
-                    </summary>
-                    <div className="p-3 pt-0 text-sm text-gray-400 space-y-2 border-t border-gray-700/50 mt-1">
+                <ExpandableDescription title="Remove, keep, or alter text lines containing specific keywords.">
                         <p>
                             A flexible tool for line-based operations. Provide keywords to target lines, then choose an action:
                         </p>
@@ -195,8 +190,7 @@ const LineRemoverPage: React.FC = () => {
                             <li><strong>Add Text:</strong> Insert custom text at the start, end, or specific position of lines that match the keywords.</li>
                         </ul>
                         <p className="pt-2 text-gray-300"><strong>Example:</strong> Use "Remove Lines" -&gt; Remove 1 Line Above when matching "Type: Trash" to remove both the item name and type lines.</p>
-                    </div>
-                </details>
+                </ExpandableDescription>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div className="flex flex-col">
                         <div>
@@ -221,7 +215,7 @@ const LineRemoverPage: React.FC = () => {
                                 value={keywordsText}
                                 onChange={(e) => setKeywordsText(e.target.value)}
                                 placeholder="e.g.,&#10;Doram_High_Cape&#10;Twinhorn_Helm"
-                                className="w-full h-40 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                className="w-full h-40 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y"
                                 spellCheck="false"
                             />
                         </div>
@@ -283,7 +277,7 @@ const LineRemoverPage: React.FC = () => {
                                     <label htmlFor="replace-with" className="block text-sm font-medium text-gray-300">Replace With (Optional)</label>
                                     <Tooltip text="If text is provided here, any line containing a keyword will be replaced with this text. If left empty, the line will be removed entirely." />
                                 </div>
-                                <textarea id="replace-with" value={replaceWithText} onChange={(e) => setReplaceWithText(e.target.value)} placeholder="Leave empty to remove lines..." className="w-full h-40 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" spellCheck="false" />
+                                <textarea id="replace-with" value={replaceWithText} onChange={(e) => setReplaceWithText(e.target.value)} placeholder="Leave empty to remove lines..." className="w-full h-40 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y" spellCheck="false" />
                             </div>
                         </>
                     )}
@@ -323,7 +317,7 @@ const LineRemoverPage: React.FC = () => {
                                     <label htmlFor="replace-with-maintain" className="block text-sm font-medium text-gray-300">Replace With (Optional)</label>
                                     <Tooltip text="If text is provided here, any line that is NOT maintained (i.e., would have been removed) will be replaced with this text. If empty, non-maintained lines are removed." />
                                 </div>
-                                <textarea id="replace-with-maintain" value={replaceWithText} onChange={(e) => setReplaceWithText(e.target.value)} placeholder="Leave empty to remove other lines..." className="w-full h-40 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" spellCheck="false" />
+                                <textarea id="replace-with-maintain" value={replaceWithText} onChange={(e) => setReplaceWithText(e.target.value)} placeholder="Leave empty to remove other lines..." className="w-full h-40 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y" spellCheck="false" />
                             </div>
                         </>
                     )}
@@ -335,7 +329,7 @@ const LineRemoverPage: React.FC = () => {
                                     <label htmlFor="text-to-add" className="block text-sm font-medium text-gray-300">Text to Add</label>
                                     <Tooltip text="The text you want to insert into matching lines." />
                                 </div>
-                                <textarea id="text-to-add" value={textToAdd} onChange={(e) => setTextToAdd(e.target.value)} className="w-full h-28 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., // To be reviewed" />
+                                <textarea id="text-to-add" value={textToAdd} onChange={(e) => setTextToAdd(e.target.value)} className="w-full h-28 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y lg:resize-y" placeholder="e.g., // To be reviewed" />
                             </div>
                             <div>
                                 <div className="flex items-center space-x-2 mb-1">
@@ -355,8 +349,8 @@ const LineRemoverPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
-                <div className="flex flex-col min-h-0">
+            <div className="flex-1 min-h-[400px] lg:min-h-[300px] flex flex-col lg:flex-row gap-6 pb-4">
+                <div className="flex-1 flex flex-col min-w-[200px]">
                     <div className="flex-shrink-0 flex items-center justify-between mb-2">
                         <label htmlFor="input-text" className="block text-sm font-medium text-gray-300">Input Data</label>
                         <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-all">
@@ -365,11 +359,12 @@ const LineRemoverPage: React.FC = () => {
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".txt,.yaml,.yml,text/plain" />
                     </div>
                     <textarea 
+                        ref={leftRef}
                         id="input-text" 
                         value={inputText} 
                         onChange={(e) => setInputText(e.target.value)} 
                         placeholder="Drag & drop a file, or paste your database content here..." 
-                        className={`flex-grow w-full bg-gray-900 text-gray-300 border rounded-md shadow-sm p-4 font-mono text-sm focus:ring-2 focus:ring-indigo-500 transition-all ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`} 
+                        className={`flex-grow w-full bg-gray-900 text-gray-300 border rounded-md shadow-sm p-4 font-mono text-sm focus:ring-2 focus:ring-indigo-500 transition-all resize-y ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`} 
                         spellCheck="false"
                         onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                         onDragOver={(e) => e.preventDefault()}
@@ -381,9 +376,9 @@ const LineRemoverPage: React.FC = () => {
                         }}
                     />
                 </div>
-                <div className="flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-w-[200px]">
                      <label htmlFor="output-text" className="flex-shrink-0 block text-sm font-medium text-gray-300 mb-2">Processed Output</label>
-                    <textarea id="output-text" value={outputText} readOnly placeholder="Result will appear here after processing..." className="flex-grow w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-4 font-mono text-sm" spellCheck="false" />
+                    <textarea ref={rightRef} id="output-text" value={outputText} readOnly placeholder="Result will appear here after processing..." className="flex-grow w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-4 font-mono text-sm resize-y" spellCheck="false" />
                 </div>
             </div>
             

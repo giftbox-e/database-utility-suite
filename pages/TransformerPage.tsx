@@ -2,6 +2,8 @@ import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { transformerWorkerScript } from '../workers/transformerScript';
 import { CopyIcon, DownloadIcon, ProcessIcon, UploadIcon, LoadingSpinner } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
+import { ExpandableDescription } from '../components/ExpandableDescription';
+import { useSyncedResize } from '../hooks/useSyncedResize';
 
 type Condition = 'none' | '<' | '=' | '>';
 type Operation = 'fixed' | 'increase' | 'decrease' | 'multiply' | 'divide';
@@ -31,6 +33,8 @@ const TransformerPage: React.FC = () => {
     const [copyStatus, setCopyStatus] = useState<string>('Copy Output');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
+    
+    const { leftRef, rightRef } = useSyncedResize();
     
     const [applyToBlock, setApplyToBlock] = useState<boolean>(() => getInitialState('transformer_applyToBlock', false));
     const [sourceKey, setSourceKey] = useState<string>(() => getInitialState('transformer_sourceKey', ''));
@@ -149,23 +153,14 @@ const TransformerPage: React.FC = () => {
         (condition !== 'none' && isNaN(parseFloat(conditionValue))) || isNaN(parseFloat(operationValue));
 
     return (
-        <div className="bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-6 border border-gray-700 flex flex-col h-full">
+        <div className="bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-6 border border-gray-700 flex flex-col flex-grow min-h-max">
             <div className="flex-shrink-0 mb-6 p-3 sm:p-4 border border-gray-700 rounded-lg bg-gray-800">
                 <div className="flex items-center space-x-2 mb-3">
                     <h2 className="text-xl font-bold text-white">Transformer</h2>
                     <Tooltip text="A powerful tool to modify numerical values in your data." />
                 </div>
                 
-                <details className="group bg-gray-900/40 border border-gray-700/50 rounded-lg mb-4">
-                    <summary className="flex cursor-pointer items-center justify-between p-3 text-sm font-medium text-gray-300 hover:text-white transition-colors">
-                        <span>Modify numerical values based on conditions. <span className="text-indigo-400">See more...</span></span>
-                        <span className="ml-4 flex-shrink-0 transform transition-transform duration-200 group-open:rotate-180">
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </span>
-                    </summary>
-                    <div className="p-3 pt-0 text-sm text-gray-400 space-y-2 border-t border-gray-700/50 mt-1">
+                <ExpandableDescription title="Modify numerical values based on conditions.">
                         <p>
                             Modify numerical values based on conditions, either line-by-line or within structured data blocks.
                             This tool can operate on an entire block of data (determined by indentation) or on individual lines.
@@ -177,8 +172,7 @@ const TransformerPage: React.FC = () => {
                             <li><strong>Operation:</strong> Set to a fixed value or perform math operations.</li>
                         </ul>
                         <p className="pt-2 text-gray-300"><strong>Example:</strong> Increase "HP: " (Target Key) by 100 on every block where "Class: " (Source Key) is equal to 5.</p>
-                    </div>
-                </details>
+                </ExpandableDescription>
 
                 <div className="space-y-4">
                      <div className="flex items-center space-x-2 p-2 rounded-md bg-gray-900/50">
@@ -289,8 +283,8 @@ const TransformerPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
-                <div className="flex flex-col min-h-0">
+            <div className="flex-1 min-h-[400px] lg:min-h-[300px] flex flex-col lg:flex-row gap-6 pb-4">
+                <div className="flex-1 flex flex-col min-w-[200px]">
                     <div className="flex-shrink-0 flex items-center justify-between mb-2">
                         <label htmlFor="input-text" className="block text-sm font-medium text-gray-300">Input Data</label>
                         <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-all">
@@ -299,11 +293,12 @@ const TransformerPage: React.FC = () => {
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".txt,.yaml,.yml,text/plain" />
                     </div>
                     <textarea 
+                        ref={leftRef}
                         id="input-text" 
                         value={inputText} 
                         onChange={(e) => setInputText(e.target.value)} 
                         placeholder="Drag & drop a file, or paste your database content here..." 
-                        className={`flex-grow w-full bg-gray-900 text-gray-300 border rounded-md shadow-sm p-4 font-mono text-sm focus:ring-2 focus:ring-indigo-500 transition-all ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`} 
+                        className={`flex-grow w-full bg-gray-900 text-gray-300 border rounded-md shadow-sm p-4 font-mono text-sm focus:ring-2 focus:ring-indigo-500 transition-all resize-y ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`} 
                         spellCheck="false"
                         onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                         onDragOver={(e) => e.preventDefault()}
@@ -315,9 +310,9 @@ const TransformerPage: React.FC = () => {
                         }}
                     />
                 </div>
-                <div className="flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-w-[200px]">
                      <label htmlFor="output-text" className="flex-shrink-0 block text-sm font-medium text-gray-300 mb-2">Processed Output</label>
-                    <textarea id="output-text" value={outputText} readOnly placeholder="Result will appear here after processing..." className="flex-grow w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-4 font-mono text-sm" spellCheck="false" />
+                    <textarea ref={rightRef} id="output-text" value={outputText} readOnly placeholder="Result will appear here after processing..." className="flex-grow w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-4 font-mono text-sm resize-y" spellCheck="false" />
                 </div>
             </div>
             

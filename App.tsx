@@ -111,9 +111,9 @@ const App: React.FC = () => {
     }, [location.pathname]);
 
     return (
-        <div className="bg-gray-900 text-gray-200 font-sans flex flex-col h-screen overflow-hidden">
-            <header className="flex-shrink-0 bg-gray-800/60 px-4 py-3 border-b border-gray-700/50 backdrop-blur-sm z-20">
-                <div className="mx-auto flex items-center justify-between gap-4">
+        <div className="bg-gray-900 text-gray-200 font-sans flex flex-col min-h-screen w-full">
+            <header className="flex-shrink-0 bg-gray-800/90 px-4 py-3 border-b border-gray-700/50 backdrop-blur-md z-30">
+                <div className="mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className='shrink-0'>
                         <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
                             Database Utility Suite
@@ -124,7 +124,7 @@ const App: React.FC = () => {
                     </div>
 
                     {/* Mobile Menu Toggle */}
-                    <div className="lg:hidden shrink-0">
+                    <div className="xl:hidden shrink-0">
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                             className="p-2 text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-md transition-colors"
@@ -133,8 +133,8 @@ const App: React.FC = () => {
                         </button>
                     </div>
 
-                    <nav className="hidden lg:flex flex-1 justify-center w-full mx-4">
-                        <div className="w-full flex justify-between items-center bg-gray-900/50 p-1 rounded-lg border border-gray-700 overflow-x-auto">
+                    <nav className="hidden xl:flex flex-1 justify-center w-full mx-4 min-w-0">
+                        <div className="w-full max-w-4xl flex justify-between items-center bg-gray-900/50 p-1 rounded-lg border border-gray-700 overflow-x-auto min-w-0">
                             <NavLink to="/transformer" className={({ isActive }) => `flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 whitespace-nowrap text-center ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
                                 Transformer
                             </NavLink>
@@ -145,14 +145,14 @@ const App: React.FC = () => {
                                 Block Processor
                             </NavLink>
                             <NavLink to="/id-block-transformer" className={({ isActive }) => `flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 whitespace-nowrap text-center ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
-                                Block ID Transformer
+                                ID Block Transformer
                             </NavLink>
                             <NavLink to="/comparator" className={({ isActive }) => `flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 whitespace-nowrap text-center ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
                                 Comparator
                             </NavLink>
                         </div>
                     </nav>
-                    <div className="hidden lg:flex shrink-0 items-center space-x-2">
+                    <div className="hidden xl:flex shrink-0 items-center space-x-2">
                         <button 
                             onClick={() => setIsClearPageModalOpen(true)}
                             className="px-3 py-1.5 text-xs font-semibold text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-md border border-gray-600 transition-colors whitespace-nowrap"
@@ -170,7 +170,7 @@ const App: React.FC = () => {
 
                 {/* Mobile Menu Dropdown */}
                 {isMobileMenuOpen && (
-                    <div className="lg:hidden mt-4 pb-2 space-y-3">
+                    <div className="xl:hidden mt-4 pb-2 space-y-3">
                         <nav className="flex flex-col space-y-1 bg-gray-900/50 p-2 rounded-lg border border-gray-700">
                             <NavLink to="/transformer" className={({ isActive }) => `block px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
                                 Transformer
@@ -206,8 +206,8 @@ const App: React.FC = () => {
                 )}
             </header>
             
-            <main className="flex-grow overflow-y-auto flex flex-col" style={{ height: 'calc(100vh - 70px)'}}>
-                <div className="w-full flex-grow p-4 sm:p-6 pb-[10px] sm:pb-[10px]">
+            <main className="flex-grow flex flex-col w-full px-2 sm:px-4 md:px-6 lg:px-8 mb-6">
+                <div className="w-full flex-grow flex flex-col pt-4 sm:pt-6 pr-1">
                     <Routes>
                         <Route path="/" element={<Navigate to="/transformer" replace />} />
                         <Route path="/transformer" element={<TransformerPage />} />
@@ -216,14 +216,14 @@ const App: React.FC = () => {
                         <Route path="/block-processor" element={<BlockRemoverPage />} />
                         <Route path="/id-block-transformer" element={<IDBlockTransformerPage />} />
                     </Routes>
+                    <footer className="w-full pb-3 pt-6 text-center text-xs text-gray-500 flex-shrink-0">
+                        <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                            <span>Created by <a href="https://github.com/giftbox-e/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white hover:underline transition-colors">giftbox-e</a></span>
+                            <span className="hidden sm:inline">|</span>
+                            <span>If this suite helps you, <a href="https://paypal.me/GiftBoxStudio" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white hover:underline transition-colors">consider buying me a coffee ☕</a></span>
+                        </p>
+                    </footer>
                 </div>
-                <footer className="w-full pb-3 pt-1 text-center text-xs text-gray-500 flex-shrink-0 px-4">
-                    <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-                        <span>Created by <a href="https://github.com/giftbox-e/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white hover:underline transition-colors">giftbox-e</a></span>
-                        <span className="hidden sm:inline">|</span>
-                        <span>If this suite helps you, <a href="https://paypal.me/GiftBoxStudio" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white hover:underline transition-colors">consider buying me a coffee ☕</a></span>
-                    </p>
-                </footer>
             </main>
 
             <Modal 
