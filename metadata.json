@@ -1,0 +1,6 @@
+{
+  "name": "YAML Database Modifier & Comparator",
+  "description": "A versatile tool to modify or compare large YAML-like database files. Use the Transformer to automate value changes, or the Comparator to see differences and missing lines between two files.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
