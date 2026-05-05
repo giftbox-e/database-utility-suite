@@ -12,9 +12,9 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden border border-gray-700">
-                <div className="flex justify-between items-center p-4 border-b border-gray-700 font-sans">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm">
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-md flex flex-col border border-gray-700 max-h-full">
+                <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700 font-sans">
                     <h3 className="text-lg font-bold text-white">{title}</h3>
                     <button 
                         onClick={onClose}
@@ -25,11 +25,11 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
                         </svg>
                     </button>
                 </div>
-                <div className="p-4 text-gray-300 font-sans text-sm">
+                <div className="p-4 text-gray-300 font-sans text-sm overflow-y-auto custom-scrollbar">
                     {children}
                 </div>
                 {actions && (
-                    <div className="px-4 py-3 bg-gray-900/50 flex justify-end gap-3 flex-wrap">
+                    <div className="px-4 py-3 bg-gray-900/50 flex justify-end gap-3 flex-wrap flex-shrink-0 rounded-b-lg">
                         {actions}
                     </div>
                 )}

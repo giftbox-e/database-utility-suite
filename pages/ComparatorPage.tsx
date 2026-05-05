@@ -334,7 +334,7 @@ const ComparatorPage: React.FC = () => {
     const handleCopy = useCallback((content: string, panel: string) => { if (!content) return; navigator.clipboard.writeText(content).then(() => { setCopyStatus(`Copied Panel ${panel}`); setTimeout(() => setCopyStatus(''), 2000); }); }, []);
 
     return (
-        <div className="flex flex-col bg-gray-800 rounded-lg p-2 sm:p-4 shadow-2xl border border-gray-700 flex-grow min-h-max">
+        <div className="w-full flex flex-col bg-gray-800 rounded-lg p-2 sm:p-4 shadow-2xl border border-gray-700 flex-grow min-h-max">
             <div className="flex items-center space-x-2 mb-2 px-2">
                 <h2 className="text-xl font-bold text-white">Comparator (Inoperable)</h2>
                 <Tooltip text="Compare two versions of a file side-by-side." />

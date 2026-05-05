@@ -111,7 +111,7 @@ const App: React.FC = () => {
     }, [location.pathname]);
 
     return (
-        <div className="bg-gray-900 text-gray-200 font-sans flex flex-col min-h-screen w-full">
+        <div className="bg-gray-900 text-gray-200 font-sans flex flex-col min-h-screen w-full overflow-x-hidden">
             <header className="flex-shrink-0 bg-gray-800/90 px-4 py-3 border-b border-gray-700/50 backdrop-blur-md z-30">
                 <div className="mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className='shrink-0'>
@@ -119,7 +119,7 @@ const App: React.FC = () => {
                             Database Utility Suite
                         </h1>
                         <p className="hidden md:block text-xs text-gray-400 mt-0.5">
-                           A versatile tool for YAML-like database files.
+                           A versatile tool for database files.
                         </p>
                     </div>
 
@@ -207,7 +207,7 @@ const App: React.FC = () => {
             </header>
             
             <main className="flex-grow flex flex-col w-full px-2 sm:px-4 md:px-6 lg:px-8 mb-6">
-                <div className="w-full flex-grow flex flex-col pt-4 sm:pt-6 pr-1">
+                <div className="w-full flex-grow flex flex-col pt-4 sm:pt-6">
                     <Routes>
                         <Route path="/" element={<Navigate to="/transformer" replace />} />
                         <Route path="/transformer" element={<TransformerPage />} />
@@ -266,7 +266,7 @@ const App: React.FC = () => {
             >
                 <div className="space-y-4">
                     <p>
-                        This suite provides a collection of powerful tools for processing, modifying, and comparing YAML-like database files commonly used in game servers and configuration files.
+                        This suite provides a collection of powerful tools for processing, modifying, and comparing database files commonly used in game servers and configuration files.
                     </p>
                     <ul className="list-disc pl-5 space-y-1">
                         <li><strong>Transformer:</strong> Apply basic mathematical operations to specific keys.</li>

@@ -8,7 +8,11 @@ export const InfoIcon: React.FC<{ className?: string }> = ({ className = "h-4 w-
 
 export const Tooltip: React.FC<{ text: string; children?: React.ReactNode }> = ({ text, children }) => {
     const [visible, setVisible] = useState(false);
-    const [style, setStyle] = useState<React.CSSProperties>({});
+    const [style, setStyle] = useState<React.CSSProperties>({
+        position: 'fixed',
+        top: '-9999px',
+        left: '-9999px',
+    });
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     const handleMouseEnter = () => {
@@ -40,10 +44,6 @@ export const Tooltip: React.FC<{ text: string; children?: React.ReactNode }> = (
         setVisible(false);
     };
 
-    // This check ensures that on initial render (before any hover), the tooltip div
-    // is taken out of the document flow and does not affect the layout.
-    const isPositioned = style.position === 'fixed';
-
     return (
         <div 
             ref={wrapperRef} 
@@ -54,7 +54,7 @@ export const Tooltip: React.FC<{ text: string; children?: React.ReactNode }> = (
             {children || <InfoIcon />}
             <div 
                 style={style}
-                className={`w-64 p-2 text-xs text-white bg-gray-900 border border-gray-600 rounded-md shadow-lg transition-opacity duration-300 pointer-events-none ${visible ? 'opacity-100' : 'opacity-0'} ${!isPositioned ? 'absolute' : ''}`}
+                className={`w-64 p-2 text-xs text-white bg-gray-900 border border-gray-600 rounded-md shadow-lg transition-opacity duration-300 pointer-events-none ${visible ? 'opacity-100' : 'opacity-0'}`}
             >
                 {text}
             </div>
