@@ -195,7 +195,7 @@ const TransformerPage: React.FC = () => {
                              <div>
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-2">
-                                        <label htmlFor="source-key" className="block text-sm font-medium text-gray-300 mb-1">1. Source Key</label>
+                                        <label htmlFor="source-key" className="block text-sm font-medium text-gray-300 mb-1">Source Key</label>
                                         <Tooltip text="The line identifier used to find the value for the condition check. Can also be the target for transformation if not in block mode. Example: 'Level: '" />
                                     </div>
                                     {applyToBlock && (
@@ -211,7 +211,7 @@ const TransformerPage: React.FC = () => {
                             </div>
                             <div>
                                 <div className="flex items-center space-x-2">
-                                    <label htmlFor="condition" className="block text-sm font-medium text-gray-300 mb-1">2. Condition</label>
+                                    <label htmlFor="condition" className="block text-sm font-medium text-gray-300 mb-1">Condition</label>
                                     <Tooltip text="The condition that the Source Key's value must meet for the transformation to occur. Select 'None' to transform every match." />
                                 </div>
                                 <select id="condition" value={condition} onChange={(e) => setCondition(e.target.value as Condition)} className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
@@ -223,7 +223,7 @@ const TransformerPage: React.FC = () => {
                             </div>
                             <div>
                                 <div className="flex items-center space-x-2">
-                                    <label htmlFor="condition-value" className="block text-sm font-medium text-gray-300 mb-1">3. Condition Value</label>
+                                    <label htmlFor="condition-value" className="block text-sm font-medium text-gray-300 mb-1">Condition Value</label>
                                     <Tooltip text="The numerical value to compare against the Source Key's value." />
                                 </div>
                                 <input type="number" id="condition-value" value={conditionValue} onChange={(e) => setConditionValue(e.target.value)} placeholder="e.g., 10" disabled={condition === 'none'} className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:opacity-50" />
@@ -234,7 +234,7 @@ const TransformerPage: React.FC = () => {
                         <div className="space-y-4 p-3 rounded-md border border-gray-700">
                              <div>
                                 <div className="flex items-center space-x-2">
-                                    <label htmlFor="target-key" className="block text-sm font-medium text-gray-300 mb-1">4. Target Key</label>
+                                    <label htmlFor="target-key" className="block text-sm font-medium text-gray-300 mb-1">Target Key</label>
                                     <Tooltip text="The line identifier whose value will be changed if the condition is met. When not in block mode, this is automatically the same as the Source Key." />
                                 </div>
                                 <input type="text" id="target-key" value={targetKey} onChange={(e) => setTargetKey(e.target.value)} placeholder="e.g., Attack: " disabled={!applyToBlock} className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:opacity-50" />
@@ -245,7 +245,7 @@ const TransformerPage: React.FC = () => {
                         <div className="space-y-4 p-3 rounded-md border border-gray-700">
                              <div>
                                 <div className="flex items-center space-x-2">
-                                    <label htmlFor="operation" className="block text-sm font-medium text-gray-300 mb-1">5. Operation</label>
+                                    <label htmlFor="operation" className="block text-sm font-medium text-gray-300 mb-1">Operation</label>
                                     <Tooltip text="The mathematical operation to apply to the Target Key's value." />
                                 </div>
                                 <select id="operation" value={operation} onChange={(e) => setOperation(e.target.value as Operation)} className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">

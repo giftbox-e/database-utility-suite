@@ -44,7 +44,7 @@ const IDBlockTransformerPage: React.FC = () => {
     const [includeIndentation, setIncludeIndentation] = useState<boolean>(() => getInitialState('idblock_includeIndentation', false));
     const [conditionValue, setConditionValue] = useState<string>(() => getInitialState('idblock_conditionValue', ''));
     const [targetKey, setTargetKey] = useState<string>(() => getInitialState('idblock_targetKey', ''));
-    const [operation, setOperation] = useState<Operation>(() => getInitialState('idblock_operation', 'fixed'));
+    const [operation, setOperation] = useState<Operation>(() => getInitialState('idblock_operation', 'multiply'));
     const [operationValue, setOperationValue] = useState<string>(() => getInitialState('idblock_operationValue', ''));
     const [roundDecimals, setRoundDecimals] = useState<boolean>(() => getInitialState('idblock_roundDecimals', false));
 
@@ -288,7 +288,7 @@ const IDBlockTransformerPage: React.FC = () => {
                                     <label htmlFor="operation-value" className="block text-sm font-medium text-gray-300">Operation Value</label>
                                     <Tooltip text="The numerical value to use for the selected operation." />
                                 </div>
-                                <input type="number" id="operation-value" value={operationValue} onChange={(e) => setOperationValue(e.target.value)} step="0.1" placeholder="e.g., 100" className="w-full bg-gray-900 text-gray-300 placeholder:text-gray-500 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                <input type="number" id="operation-value" value={operationValue} onChange={(e) => setOperationValue(e.target.value)} step="0.1" placeholder="e.g., 1.5" className="w-full bg-gray-900 text-gray-300 placeholder:text-gray-500 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
                             </div>
                             {(operation === 'multiply' || operation === 'divide') && (
                                 <div className="flex items-center space-x-2 mt-4">
