@@ -15,5 +15,5 @@ https://database.utility-suite.com/
 2. Run the app:
    `npm run dev`
 
-If this suite helps you, consider buying me a coffee ☕ 
-https://paypal.me/GiftBoxStudio
+If this suite helps you, consider [buying me a coffee ☕ ](https://paypal.me/GiftBoxStudio)
+Created by [giftbox-e](https://github.com/giftbox-e/)
