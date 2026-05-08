@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { safeSetLocalStorage } from '../lib/storage';
 import { AdvancedLinesDiffComputer, LinesDiff } from 'vscode-diff';
 import { UploadIcon, DownloadIcon, CopyIcon, PencilAltIcon, ArrowRightIcon, ArrowLeftIcon } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
@@ -185,11 +186,11 @@ const ComparatorPage: React.FC = () => {
     const diffComputer = useMemo(() => new AdvancedLinesDiffComputer(), []);
 
     // --- State Persistence Effects ---
-    useEffect(() => { localStorage.setItem('comparator_fileAContent', JSON.stringify(fileAContent)); }, [fileAContent]);
-    useEffect(() => { localStorage.setItem('comparator_fileBContent', JSON.stringify(fileBContent)); }, [fileBContent]);
-    useEffect(() => { localStorage.setItem('comparator_fileAName', JSON.stringify(fileAName)); }, [fileAName]);
-    useEffect(() => { localStorage.setItem('comparator_fileBName', JSON.stringify(fileBName)); }, [fileBName]);
-    useEffect(() => { localStorage.setItem('comparator_realTimeComparison', JSON.stringify(realTimeComparison)); }, [realTimeComparison]);
+    useEffect(() => { safeSetLocalStorage('comparator_fileAContent', fileAContent); }, [fileAContent]);
+    useEffect(() => { safeSetLocalStorage('comparator_fileBContent', fileBContent); }, [fileBContent]);
+    useEffect(() => { safeSetLocalStorage('comparator_fileAName', fileAName); }, [fileAName]);
+    useEffect(() => { safeSetLocalStorage('comparator_fileBName', fileBName); }, [fileBName]);
+    useEffect(() => { safeSetLocalStorage('comparator_realTimeComparison', realTimeComparison); }, [realTimeComparison]);
 
     // --- Comparison Logic ---
     const handleCompare = useCallback(() => {

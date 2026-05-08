@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { safeSetLocalStorage } from '../lib/storage';
 import { transformerWorkerScript } from '../workers/transformerScript';
 import { CopyIcon, DownloadIcon, ProcessIcon, UploadIcon, LoadingSpinner } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
@@ -47,17 +48,17 @@ const TransformerPage: React.FC = () => {
     const [roundDecimals, setRoundDecimals] = useState<boolean>(() => getInitialState('transformer_roundDecimals', false));
 
     // --- State Persistence Effects ---
-    useEffect(() => { localStorage.setItem('transformer_inputText', JSON.stringify(inputText)); }, [inputText]);
-    useEffect(() => { localStorage.setItem('transformer_inputFileName', JSON.stringify(inputFileName)); }, [inputFileName]);
-    useEffect(() => { localStorage.setItem('transformer_applyToBlock', JSON.stringify(applyToBlock)); }, [applyToBlock]);
-    useEffect(() => { localStorage.setItem('transformer_sourceKey', JSON.stringify(sourceKey)); }, [sourceKey]);
-    useEffect(() => { localStorage.setItem('transformer_includeString', JSON.stringify(includeString)); }, [includeString]);
-    useEffect(() => { localStorage.setItem('transformer_condition', JSON.stringify(condition)); }, [condition]);
-    useEffect(() => { localStorage.setItem('transformer_conditionValue', JSON.stringify(conditionValue)); }, [conditionValue]);
-    useEffect(() => { localStorage.setItem('transformer_targetKey', JSON.stringify(targetKey)); }, [targetKey]);
-    useEffect(() => { localStorage.setItem('transformer_operation', JSON.stringify(operation)); }, [operation]);
-    useEffect(() => { localStorage.setItem('transformer_operationValue', JSON.stringify(operationValue)); }, [operationValue]);
-    useEffect(() => { localStorage.setItem('transformer_roundDecimals', JSON.stringify(roundDecimals)); }, [roundDecimals]);
+    useEffect(() => { safeSetLocalStorage('transformer_inputText', inputText); }, [inputText]);
+    useEffect(() => { safeSetLocalStorage('transformer_inputFileName', inputFileName); }, [inputFileName]);
+    useEffect(() => { safeSetLocalStorage('transformer_applyToBlock', applyToBlock); }, [applyToBlock]);
+    useEffect(() => { safeSetLocalStorage('transformer_sourceKey', sourceKey); }, [sourceKey]);
+    useEffect(() => { safeSetLocalStorage('transformer_includeString', includeString); }, [includeString]);
+    useEffect(() => { safeSetLocalStorage('transformer_condition', condition); }, [condition]);
+    useEffect(() => { safeSetLocalStorage('transformer_conditionValue', conditionValue); }, [conditionValue]);
+    useEffect(() => { safeSetLocalStorage('transformer_targetKey', targetKey); }, [targetKey]);
+    useEffect(() => { safeSetLocalStorage('transformer_operation', operation); }, [operation]);
+    useEffect(() => { safeSetLocalStorage('transformer_operationValue', operationValue); }, [operationValue]);
+    useEffect(() => { safeSetLocalStorage('transformer_roundDecimals', roundDecimals); }, [roundDecimals]);
 
 
     const calculatedIndentation = useMemo(() => {

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { safeSetLocalStorage } from '../lib/storage';
 import { lineRemoverWorkerScript } from '../workers/lineRemoverScript';
 import { CopyIcon, DownloadIcon, UploadIcon, LoadingSpinner, TrashIcon } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
@@ -35,6 +36,7 @@ const LineRemoverPage: React.FC = () => {
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
     const [copyStatus, setCopyStatus] = useState<string>('Copy Output');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const keywordsFileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     
     const { leftRef, rightRef } = useSyncedResize();
@@ -55,22 +57,22 @@ const LineRemoverPage: React.FC = () => {
     const [linesToMaintainBelow, setLinesToMaintainBelow] = useState<string>(() => getInitialState('lineRemover_linesToMaintainBelow', '1'));
 
     // --- State Persistence Effects ---
-    useEffect(() => { localStorage.setItem('lineRemover_inputText', JSON.stringify(inputText)); }, [inputText]);
-    useEffect(() => { localStorage.setItem('lineRemover_inputFileName', JSON.stringify(inputFileName)); }, [inputFileName]);
-    useEffect(() => { localStorage.setItem('lineRemover_keywordsText', JSON.stringify(keywordsText)); }, [keywordsText]);
-    useEffect(() => { localStorage.setItem('lineRemover_replaceWithText', JSON.stringify(replaceWithText)); }, [replaceWithText]);
-    useEffect(() => { localStorage.setItem('lineRemover_mode', JSON.stringify(mode)); }, [mode]);
-    useEffect(() => { localStorage.setItem('lineRemover_matchMode', JSON.stringify(matchMode)); }, [matchMode]);
-    useEffect(() => { localStorage.setItem('lineRemover_textToAdd', JSON.stringify(textToAdd)); }, [textToAdd]);
-    useEffect(() => { localStorage.setItem('lineRemover_addPosition', JSON.stringify(addPosition)); }, [addPosition]);
-    useEffect(() => { localStorage.setItem('lineRemover_removeAbove', JSON.stringify(removeAbove)); }, [removeAbove]);
-    useEffect(() => { localStorage.setItem('lineRemover_linesAbove', JSON.stringify(linesAbove)); }, [linesAbove]);
-    useEffect(() => { localStorage.setItem('lineRemover_removeBelow', JSON.stringify(removeBelow)); }, [removeBelow]);
-    useEffect(() => { localStorage.setItem('lineRemover_linesBelow', JSON.stringify(linesBelow)); }, [linesBelow]);
-    useEffect(() => { localStorage.setItem('lineRemover_maintainAbove', JSON.stringify(maintainAbove)); }, [maintainAbove]);
-    useEffect(() => { localStorage.setItem('lineRemover_linesToMaintainAbove', JSON.stringify(linesToMaintainAbove)); }, [linesToMaintainAbove]);
-    useEffect(() => { localStorage.setItem('lineRemover_maintainBelow', JSON.stringify(maintainBelow)); }, [maintainBelow]);
-    useEffect(() => { localStorage.setItem('lineRemover_linesToMaintainBelow', JSON.stringify(linesToMaintainBelow)); }, [linesToMaintainBelow]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_inputText', inputText); }, [inputText]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_inputFileName', inputFileName); }, [inputFileName]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_keywordsText', keywordsText); }, [keywordsText]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_replaceWithText', replaceWithText); }, [replaceWithText]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_mode', mode); }, [mode]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_matchMode', matchMode); }, [matchMode]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_textToAdd', textToAdd); }, [textToAdd]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_addPosition', addPosition); }, [addPosition]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_removeAbove', removeAbove); }, [removeAbove]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_linesAbove', linesAbove); }, [linesAbove]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_removeBelow', removeBelow); }, [removeBelow]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_linesBelow', linesBelow); }, [linesBelow]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_maintainAbove', maintainAbove); }, [maintainAbove]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_linesToMaintainAbove', linesToMaintainAbove); }, [linesToMaintainAbove]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_maintainBelow', maintainBelow); }, [maintainBelow]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_linesToMaintainBelow', linesToMaintainBelow); }, [linesToMaintainBelow]);
 
 
     const isReplaceMode = (mode === 'remove' || mode === 'maintain') && replaceWithText.trim() !== '';
@@ -198,6 +200,17 @@ const LineRemoverPage: React.FC = () => {
                                 <div className="flex items-center space-x-2">
                                     <label htmlFor="keywords" className="block text-sm font-medium text-gray-300">Keywords</label>
                                     <Tooltip text="Enter one keyword or phrase per line. Any line in the input data containing one of these keywords will be targeted for processing." />
+                                    <button onClick={() => keywordsFileInputRef.current?.click()} className="ml-2 flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-all">
+                                        <UploadIcon className="h-3 w-3 mr-1" /> Upload
+                                    </button>
+                                    <input ref={keywordsFileInputRef} type="file" className="hidden" onChange={(e) => {
+                                        if (e.target.files?.[0]) {
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => setKeywordsText(ev.target?.result as string);
+                                            reader.readAsText(e.target.files[0]);
+                                            if (keywordsFileInputRef.current) keywordsFileInputRef.current.value = '';
+                                        }
+                                    }} accept=".txt,.csv,text/plain" />
                                 </div>
                                  <div className="flex items-center space-x-3 text-sm text-gray-300">
                                     <label className="flex items-center space-x-1 cursor-pointer">

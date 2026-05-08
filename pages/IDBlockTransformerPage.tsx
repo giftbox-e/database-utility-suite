@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { safeSetLocalStorage } from '../lib/storage';
 import { idBlockTransformerScript } from '../workers/idBlockTransformerScript';
 import { CopyIcon, DownloadIcon, ProcessIcon, UploadIcon, LoadingSpinner } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
@@ -31,6 +32,7 @@ const IDBlockTransformerPage: React.FC = () => {
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
     const [copyStatus, setCopyStatus] = useState<string>('Copy Output');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const keywordsFileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     
     const { leftRef, rightRef } = useSyncedResize();
@@ -48,19 +50,19 @@ const IDBlockTransformerPage: React.FC = () => {
     const [operationValue, setOperationValue] = useState<string>(() => getInitialState('idblock_operationValue', ''));
     const [roundDecimals, setRoundDecimals] = useState<boolean>(() => getInitialState('idblock_roundDecimals', false));
 
-    useEffect(() => { localStorage.setItem('idblock_inputText', JSON.stringify(inputText)); }, [inputText]);
-    useEffect(() => { localStorage.setItem('idblock_inputFileName', JSON.stringify(inputFileName)); }, [inputFileName]);
-    useEffect(() => { localStorage.setItem('idblock_keywordsText', JSON.stringify(keywordsText)); }, [keywordsText]);
-    useEffect(() => { localStorage.setItem('idblock_blockStartFormat', JSON.stringify(blockStartFormat)); }, [blockStartFormat]);
-    useEffect(() => { localStorage.setItem('idblock_applyToBlock', JSON.stringify(applyToBlock)); }, [applyToBlock]);
-    useEffect(() => { localStorage.setItem('idblock_sourceKey', JSON.stringify(sourceKey)); }, [sourceKey]);
-    useEffect(() => { localStorage.setItem('idblock_condition', JSON.stringify(condition)); }, [condition]);
-    useEffect(() => { localStorage.setItem('idblock_includeIndentation', JSON.stringify(includeIndentation)); }, [includeIndentation]);
-    useEffect(() => { localStorage.setItem('idblock_conditionValue', JSON.stringify(conditionValue)); }, [conditionValue]);
-    useEffect(() => { localStorage.setItem('idblock_targetKey', JSON.stringify(targetKey)); }, [targetKey]);
-    useEffect(() => { localStorage.setItem('idblock_operation', JSON.stringify(operation)); }, [operation]);
-    useEffect(() => { localStorage.setItem('idblock_operationValue', JSON.stringify(operationValue)); }, [operationValue]);
-    useEffect(() => { localStorage.setItem('idblock_roundDecimals', JSON.stringify(roundDecimals)); }, [roundDecimals]);
+    useEffect(() => { safeSetLocalStorage('idblock_inputText', inputText); }, [inputText]);
+    useEffect(() => { safeSetLocalStorage('idblock_inputFileName', inputFileName); }, [inputFileName]);
+    useEffect(() => { safeSetLocalStorage('idblock_keywordsText', keywordsText); }, [keywordsText]);
+    useEffect(() => { safeSetLocalStorage('idblock_blockStartFormat', blockStartFormat); }, [blockStartFormat]);
+    useEffect(() => { safeSetLocalStorage('idblock_applyToBlock', applyToBlock); }, [applyToBlock]);
+    useEffect(() => { safeSetLocalStorage('idblock_sourceKey', sourceKey); }, [sourceKey]);
+    useEffect(() => { safeSetLocalStorage('idblock_condition', condition); }, [condition]);
+    useEffect(() => { safeSetLocalStorage('idblock_includeIndentation', includeIndentation); }, [includeIndentation]);
+    useEffect(() => { safeSetLocalStorage('idblock_conditionValue', conditionValue); }, [conditionValue]);
+    useEffect(() => { safeSetLocalStorage('idblock_targetKey', targetKey); }, [targetKey]);
+    useEffect(() => { safeSetLocalStorage('idblock_operation', operation); }, [operation]);
+    useEffect(() => { safeSetLocalStorage('idblock_operationValue', operationValue); }, [operationValue]);
+    useEffect(() => { safeSetLocalStorage('idblock_roundDecimals', roundDecimals); }, [roundDecimals]);
 
     useEffect(() => {
         if (!applyToBlock) {
@@ -197,6 +199,17 @@ const IDBlockTransformerPage: React.FC = () => {
                                         Target IDs / Keywords
                                     </label>
                                     <Tooltip text="List of specific Block IDs you want to target, separated by line breaks. Only the blocks matching these IDs will be processed." />
+                                    <button onClick={() => keywordsFileInputRef.current?.click()} className="ml-2 flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-all">
+                                        <UploadIcon className="h-3 w-3 mr-1" /> Upload
+                                    </button>
+                                    <input ref={keywordsFileInputRef} type="file" className="hidden" onChange={(e) => {
+                                        if (e.target.files?.[0]) {
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => setKeywordsText(ev.target?.result as string);
+                                            reader.readAsText(e.target.files[0]);
+                                            if (keywordsFileInputRef.current) keywordsFileInputRef.current.value = '';
+                                        }
+                                    }} accept=".txt,.csv,text/plain" />
                                 </div>
                                 <textarea
                                     id="keywords-text"

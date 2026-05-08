@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { safeSetLocalStorage } from '../lib/storage';
 import { blockRemoverWorkerScript } from '../workers/blockRemoverScript';
 import { CopyIcon, DownloadIcon, UploadIcon, LoadingSpinner, BlockRemoveIcon } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
@@ -39,6 +40,7 @@ const BlockRemoverPage: React.FC = () => {
     const [mode, setMode] = useState<Mode>(() => getInitialState('blockRemover_mode', 'remove'));
     const [matchMode, setMatchMode] = useState<MatchMode>(() => getInitialState('blockRemover_matchMode', 'contains'));
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const keywordsFileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     
     const { leftRef, rightRef } = useSyncedResize();
@@ -51,19 +53,20 @@ const BlockRemoverPage: React.FC = () => {
     const [invertAddTextCondition, setInvertAddTextCondition] = useState<boolean>(() => getInitialState('blockRemover_invertAddTextCondition', false));
 
     // --- State Persistence Effects ---
-    useEffect(() => { localStorage.setItem('blockRemover_inputText', JSON.stringify(inputText)); }, [inputText]);
-    useEffect(() => { localStorage.setItem('blockRemover_inputFileName', JSON.stringify(inputFileName)); }, [inputFileName]);
-    useEffect(() => { localStorage.setItem('blockRemover_keywordsText', JSON.stringify(keywordsText)); }, [keywordsText]);
-    useEffect(() => { localStorage.setItem('blockRemover_blockStartIdentifier', JSON.stringify(blockStartIdentifier)); }, [blockStartIdentifier]);
-    useEffect(() => { localStorage.setItem('blockRemover_includeIdentifierString', JSON.stringify(includeIdentifierString)); }, [includeIdentifierString]);
-    useEffect(() => { localStorage.setItem('blockRemover_replaceWithText', JSON.stringify(replaceWithText)); }, [replaceWithText]);
-    useEffect(() => { localStorage.setItem('blockRemover_mode', JSON.stringify(mode)); }, [mode]);
-    useEffect(() => { localStorage.setItem('blockRemover_matchMode', JSON.stringify(matchMode)); }, [matchMode]);
-    useEffect(() => { localStorage.setItem('blockRemover_indentationFilterMode', JSON.stringify(indentationFilterMode)); }, [indentationFilterMode]);
-    useEffect(() => { localStorage.setItem('blockRemover_indentationFilterValue', JSON.stringify(indentationFilterValue)); }, [indentationFilterValue]);
-    useEffect(() => { localStorage.setItem('blockRemover_textToAdd', JSON.stringify(textToAdd)); }, [textToAdd]);
-    useEffect(() => { localStorage.setItem('blockRemover_addPosition', JSON.stringify(addPosition)); }, [addPosition]);
-    useEffect(() => { localStorage.setItem('blockRemover_invertAddTextCondition', JSON.stringify(invertAddTextCondition)); }, [invertAddTextCondition]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_inputText', inputText); }, [inputText]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_inputFileName', inputFileName); }, [inputFileName]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_keywordsText', keywordsText); }, [keywordsText]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_blockStartIdentifier', blockStartIdentifier); }, [blockStartIdentifier]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_includeIdentifierString', includeIdentifierString); }, [includeIdentifierString]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_replaceWithText', replaceWithText); }, [replaceWithText]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_mode', mode); }, [mode]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_matchMode', matchMode); }, [matchMode]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_indentationFilterMode', indentationFilterMode); }, [indentationFilterMode]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_indentationFilterValue', indentationFilterValue); }, [indentationFilterValue]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_textToAdd', textToAdd); }, [textToAdd]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_addPosition', addPosition); }, [addPosition]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_invertAddTextCondition', invertAddTextCondition); }, [invertAddTextCondition]);
+
 
 
     const calculatedIndentation = useMemo(() => {
@@ -251,6 +254,17 @@ const BlockRemoverPage: React.FC = () => {
                                 <div className="flex items-center space-x-2">
                                     <label htmlFor="keywords" className="block text-sm font-medium text-gray-300">Keywords</label>
                                     <Tooltip text="Enter one keyword per line. The processor will check if any of these keywords exist within a data block to decide whether to perform the selected action." />
+                                    <button onClick={() => keywordsFileInputRef.current?.click()} className="ml-2 flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-all">
+                                        <UploadIcon className="h-3 w-3 mr-1" /> Upload
+                                    </button>
+                                    <input ref={keywordsFileInputRef} type="file" className="hidden" onChange={(e) => {
+                                        if (e.target.files?.[0]) {
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => setKeywordsText(ev.target?.result as string);
+                                            reader.readAsText(e.target.files[0]);
+                                            if (keywordsFileInputRef.current) keywordsFileInputRef.current.value = '';
+                                        }
+                                    }} accept=".txt,.csv,text/plain" />
                                 </div>
                                 <div className="flex items-center space-x-3 text-sm text-gray-300">
                                     <label className="flex items-center space-x-1 cursor-pointer">
