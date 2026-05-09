@@ -12,8 +12,10 @@ https://database.utility-suite.com/
 
 1. Install dependencies:
    `npm install`
+   `npm install @uiw/react-codemirror @codemirror/lang-yaml @codemirror/view`
 2. Run the app:
-   `npm run dev`
+   `npx vite --port 3001`
+   `npm run dev -- --port 3001`
 
 If this suite helps you, consider [buying me a coffee ☕ ](https://paypal.me/GiftBoxStudio)
 

@@ -5,6 +5,7 @@ import { CopyIcon, DownloadIcon, UploadIcon, LoadingSpinner, TrashIcon } from '.
 import { Tooltip } from '../components/Tooltip';
 import { ExpandableDescription } from '../components/ExpandableDescription';
 import { useSyncedResize } from '../hooks/useSyncedResize';
+import { CodeEditor } from '../components/CodeEditor';
 
 type Mode = 'remove' | 'maintain' | 'addText';
 type AddPosition = 'start' | 'end' | 'before' | 'after';
@@ -38,8 +39,8 @@ const LineRemoverPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const keywordsFileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
-    
-    const { leftRef, rightRef } = useSyncedResize();
+
+    const { leftRef, rightRef, isManuallyResized } = useSyncedResize();
 
     const [mode, setMode] = useState<Mode>(() => getInitialState('lineRemover_mode', 'remove'));
     const [matchMode, setMatchMode] = useState<MatchMode>(() => getInitialState('lineRemover_matchMode', 'contains'));
@@ -55,6 +56,9 @@ const LineRemoverPage: React.FC = () => {
     const [linesToMaintainAbove, setLinesToMaintainAbove] = useState<string>(() => getInitialState('lineRemover_linesToMaintainAbove', '1'));
     const [maintainBelow, setMaintainBelow] = useState<boolean>(() => getInitialState('lineRemover_maintainBelow', false));
     const [linesToMaintainBelow, setLinesToMaintainBelow] = useState<string>(() => getInitialState('lineRemover_linesToMaintainBelow', '1'));
+
+    const [autoExtendConfig, setAutoExtendConfig] = useState<boolean>(() => getInitialState('lineRemover_autoExtendConfig', false));
+    const [autoExtendData, setAutoExtendData] = useState<boolean>(() => getInitialState('lineRemover_autoExtendData', false));
 
     // --- State Persistence Effects ---
     useEffect(() => { safeSetLocalStorage('lineRemover_inputText', inputText); }, [inputText]);
@@ -73,6 +77,16 @@ const LineRemoverPage: React.FC = () => {
     useEffect(() => { safeSetLocalStorage('lineRemover_linesToMaintainAbove', linesToMaintainAbove); }, [linesToMaintainAbove]);
     useEffect(() => { safeSetLocalStorage('lineRemover_maintainBelow', maintainBelow); }, [maintainBelow]);
     useEffect(() => { safeSetLocalStorage('lineRemover_linesToMaintainBelow', linesToMaintainBelow); }, [linesToMaintainBelow]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_autoExtendConfig', autoExtendConfig); }, [autoExtendConfig]);
+    useEffect(() => { safeSetLocalStorage('lineRemover_autoExtendData', autoExtendData); }, [autoExtendData]);
+
+    const getWrapperStyle = (baseHeightOrAutoExtend: string | boolean, autoExtendParam?: boolean): React.CSSProperties => {
+        const autoExtend = typeof baseHeightOrAutoExtend === 'boolean' ? baseHeightOrAutoExtend : (autoExtendParam || false);
+        const baseHeight = typeof baseHeightOrAutoExtend === 'string' ? baseHeightOrAutoExtend : '120px';
+        if (autoExtend) return { minHeight: baseHeight, flex: '1 1 auto', position: 'relative' };
+        if (isManuallyResized) return { minHeight: baseHeight, flex: 'none', resize: 'vertical', overflow: 'hidden', position: 'relative' };
+        return { minHeight: baseHeight, flex: '1 1 0%', resize: 'vertical', overflow: 'hidden', position: 'relative' };
+    };
 
 
     const isReplaceMode = (mode === 'remove' || mode === 'maintain') && replaceWithText.trim() !== '';
@@ -122,7 +136,7 @@ const LineRemoverPage: React.FC = () => {
             addPosition
         });
     }, [inputText, keywordsText, replaceWithText, removeAbove, linesAbove, removeBelow, linesBelow, maintainAbove, linesToMaintainAbove, maintainBelow, linesToMaintainBelow, mode, matchMode, textToAdd, addPosition]);
-    
+
     const handleCopy = useCallback(() => {
         if (!outputText) return;
         navigator.clipboard.writeText(outputText).then(() => {
@@ -130,7 +144,7 @@ const LineRemoverPage: React.FC = () => {
             setTimeout(() => setCopyStatus('Copy Output'), 2000);
         });
     }, [outputText]);
-    
+
     const handleDownload = useCallback(() => {
         if (!outputText) return;
         const blob = new Blob([outputText], { type: 'text/plain;charset=utf-8' });
@@ -166,7 +180,7 @@ const LineRemoverPage: React.FC = () => {
         (mode === 'addText' && !textToAdd.trim());
 
     const getButtonText = () => {
-        switch(mode) {
+        switch (mode) {
             case 'remove': return isReplaceMode ? 'Replace Lines' : 'Remove Lines';
             case 'maintain': return isReplaceMode ? 'Filter & Replace Lines' : 'Filter Lines';
             case 'addText': return 'Add Text to Lines';
@@ -175,23 +189,38 @@ const LineRemoverPage: React.FC = () => {
     };
 
     return (
-        <div className="w-full bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-6 border border-gray-700 flex flex-col flex-grow min-h-max">
+        <div className="w-full bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-6 border border-gray-700 flex flex-col flex-grow min-h-0">
             <div className="flex-shrink-0 mb-6 p-3 sm:p-4 border border-gray-700 rounded-lg bg-gray-800">
                 <div className="flex items-center space-x-2 mb-3">
                     <h2 className="text-xl font-bold text-white">Line Processor</h2>
                     <Tooltip text="A flexible tool for line-based operations." />
+
+                    <div className="ml-auto flex items-center gap-4">
+                        <label className="flex items-center space-x-2 text-sm text-gray-300 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={autoExtendConfig}
+                                onChange={(e) => setAutoExtendConfig(e.target.checked)}
+                                className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <span>Auto-Extend Config Boxes</span>
+                        </label>
+                    </div>
                 </div>
-                
+
                 <ExpandableDescription title="Remove, keep, or alter text lines containing specific keywords.">
-                        <p>
-                            A flexible tool for line-based operations. Provide keywords to target lines, then choose an action:
-                        </p>
-                        <ul className="list-disc pl-5 space-y-1">
-                            <li><strong>Remove Lines:</strong> Delete lines containing keywords. You can also conditionally remove N lines above/below the keyword!</li>
-                            <li><strong>Maintain Lines:</strong> Keep ONLY the lines containing keywords, and delete everything else in the file.</li>
-                            <li><strong>Add Text:</strong> Insert custom text at the start, end, or specific position of lines that match the keywords.</li>
-                        </ul>
-                        <p className="pt-2 text-gray-300"><strong>Example:</strong> Use "Remove Lines" -&gt; Remove 1 Line Above when matching "Type: Trash" to remove both the item name and type lines.</p>
+                    <p>
+                        A flexible tool for line-based operations. Provide keywords to target lines, then choose an action:
+                    </p>
+                    <p className="mt-2 text-indigo-300 font-medium">
+                        <span className="font-bold underline">Important:</span> This tool ignores blocks and strictly targets individual lines of text.
+                    </p>
+                    <ul className="list-disc pl-5 mt-2 space-y-1">
+                        <li><strong>Remove Lines:</strong> Delete lines containing keywords. You can also conditionally remove N lines above/below the keyword!</li>
+                        <li><strong>Maintain Lines:</strong> Keep ONLY the lines containing keywords, and delete everything else in the file.</li>
+                        <li><strong>Add Text:</strong> Insert custom text at the start, end, or specific position of lines that match the keywords.</li>
+                    </ul>
+                    <p className="pt-2 text-gray-300"><strong>Example:</strong> Use "Remove Lines" -&gt; Remove 1 Line Above when matching "Type: Trash" to remove both the item name and type lines.</p>
                 </ExpandableDescription>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div className="flex flex-col">
@@ -212,33 +241,35 @@ const LineRemoverPage: React.FC = () => {
                                         }
                                     }} accept=".txt,.csv,text/plain" />
                                 </div>
-                                 <div className="flex items-center space-x-3 text-sm text-gray-300">
+                                <div className="flex items-center space-x-3 text-sm text-gray-300">
                                     <label className="flex items-center space-x-1 cursor-pointer">
-                                        <input type="radio" name="matchMode" value="contains" checked={matchMode === 'contains'} onChange={() => setMatchMode('contains')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>
+                                        <input type="radio" name="matchMode" value="contains" checked={matchMode === 'contains'} onChange={() => setMatchMode('contains')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
                                         <span>Contains</span>
                                     </label>
                                     <label className="flex items-center space-x-1 cursor-pointer">
-                                        <input type="radio" name="matchMode" value="exact" checked={matchMode === 'exact'} onChange={() => setMatchMode('exact')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>
+                                        <input type="radio" name="matchMode" value="exact" checked={matchMode === 'exact'} onChange={() => setMatchMode('exact')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
                                         <span>Exact match</span>
                                     </label>
                                 </div>
                             </div>
-                            <textarea
-                                id="keywords"
-                                value={keywordsText}
-                                onChange={(e) => setKeywordsText(e.target.value)}
-                                placeholder="e.g.,&#10;Doram_High_Cape&#10;Twinhorn_Helm"
-                                className="w-full h-40 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y"
-                                spellCheck="false"
-                            />
-                        </div>
-                        
-                        <div role="radiogroup" aria-labelledby="mode-label" className="flex flex-col space-y-2 mt-4">
-                            <div className="flex items-center space-x-2">
-                                <span id="mode-label" className="text-sm font-medium text-gray-300">Mode:</span>
-                                <Tooltip text="Choose the core operation to perform on lines that match your keywords." />
+                            <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
+                                <CodeEditor
+                                    value={keywordsText}
+                                    onChange={(val) => setKeywordsText(val)}
+                                    placeholder={"e.g.,\nDoram_High_Cape\nTwinhorn_Helm"}
+                                    autoExtend={autoExtendConfig}
+                                />
                             </div>
-                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        </div>
+
+                        <div role="radiogroup" aria-labelledby="mode-label" className="flex flex-row flex-wrap items-center space-x-4 mt-4">
+                            <div className="flex items-center space-x-2">
+                                <span id="mode-label" className="text-sm font-medium text-gray-300">Operation Mode:</span>
+                                <Tooltip text="- Remove: deletes matching lines (or replaces them if replacement text is provided). Example: remove all lines containing 'Type: Trash'.
+- Maintain: keeps ONLY the matching lines, discarding all other un-matched lines.
+- Add Text: appends custom text before or after the matching lines." />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-4">
                                 <label title="Remove any line that contains a keyword." className="flex items-center space-x-2 text-gray-300 cursor-pointer">
                                     <input type="radio" name="mode" value="remove" checked={mode === 'remove'} onChange={() => setMode('remove')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
                                     <span>Remove</span>
@@ -254,7 +285,7 @@ const LineRemoverPage: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                    
+
                     {mode === 'remove' && (
                         <>
                             <div className={`space-y-4`}>
@@ -290,13 +321,20 @@ const LineRemoverPage: React.FC = () => {
                                     <label htmlFor="replace-with" className="block text-sm font-medium text-gray-300">Replace With (Optional)</label>
                                     <Tooltip text="If text is provided here, any line containing a keyword will be replaced with this text. If left empty, the line will be removed entirely." />
                                 </div>
-                                <textarea id="replace-with" value={replaceWithText} onChange={(e) => setReplaceWithText(e.target.value)} placeholder="Leave empty to remove lines..." className="w-full h-40 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y" spellCheck="false" />
+                                <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
+                                    <CodeEditor
+                                        value={replaceWithText}
+                                        onChange={(val) => setReplaceWithText(val)}
+                                        placeholder="Leave empty to remove lines..."
+                                        autoExtend={autoExtendConfig}
+                                    />
+                                </div>
                             </div>
                         </>
                     )}
 
                     {mode === 'maintain' && (
-                         <>
+                        <>
                             <div className={`space-y-4`}>
                                 <fieldset>
                                     <legend className="text-sm font-medium text-gray-300 mb-2 flex items-center text-center justify-center space-x-2">
@@ -330,19 +368,33 @@ const LineRemoverPage: React.FC = () => {
                                     <label htmlFor="replace-with-maintain" className="block text-sm font-medium text-gray-300">Replace With (Optional)</label>
                                     <Tooltip text="If text is provided here, any line that is NOT maintained (i.e., would have been removed) will be replaced with this text. If empty, non-maintained lines are removed." />
                                 </div>
-                                <textarea id="replace-with-maintain" value={replaceWithText} onChange={(e) => setReplaceWithText(e.target.value)} placeholder="Leave empty to remove other lines..." className="w-full h-40 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y" spellCheck="false" />
+                                <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
+                                    <CodeEditor
+                                        value={replaceWithText}
+                                        onChange={(val) => setReplaceWithText(val)}
+                                        placeholder="Leave empty to remove other lines..."
+                                        autoExtend={autoExtendConfig}
+                                    />
+                                </div>
                             </div>
                         </>
                     )}
 
                     {mode === 'addText' && (
-                         <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+                        <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
                             <div>
                                 <div className="flex items-center space-x-2 mb-1">
                                     <label htmlFor="text-to-add" className="block text-sm font-medium text-gray-300">Text to Add</label>
                                     <Tooltip text="The text you want to insert into matching lines." />
                                 </div>
-                                <textarea id="text-to-add" value={textToAdd} onChange={(e) => setTextToAdd(e.target.value)} className="w-full h-28 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y lg:resize-y" placeholder="e.g., // To be reviewed" />
+                                <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
+                                    <CodeEditor
+                                        value={textToAdd}
+                                        onChange={(val) => setTextToAdd(val)}
+                                        placeholder="e.g., // To be reviewed"
+                                        autoExtend={autoExtendConfig}
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <div className="flex items-center space-x-2 mb-1">
@@ -362,23 +414,30 @@ const LineRemoverPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex-1 min-h-[400px] lg:min-h-[300px] flex flex-col lg:flex-row gap-6 pb-4">
-                <div className="flex-1 flex flex-col min-w-[200px]">
+            <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-6 pb-4">
+                <div className="flex-1 flex flex-col min-h-0 min-w-[200px]">
                     <div className="flex-shrink-0 flex items-center justify-between mb-2">
                         <label htmlFor="input-text" className="block text-sm font-medium text-gray-300">Input Data</label>
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-all">
-                            <UploadIcon className="h-4 w-4 mr-2" /> Upload File
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center space-x-2 text-sm text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={autoExtendData}
+                                    onChange={(e) => setAutoExtendData(e.target.checked)}
+                                    className="h-3.5 w-3.5 rounded bg-[#101828] border-gray-600 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                                />
+                                <span>Auto-Extend Views</span>
+                            </label>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-[#1e293b] hover:bg-[#334155] transition-all">
+                                <UploadIcon className="h-4 w-4 mr-2" /> Upload File
+                            </button>
+                        </div>
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".txt,.yaml,.yml,text/plain" />
                     </div>
-                    <textarea 
+                    <div
                         ref={leftRef}
-                        id="input-text" 
-                        value={inputText} 
-                        onChange={(e) => setInputText(e.target.value)} 
-                        placeholder="Drag & drop a file, or paste your database content here..." 
-                        className={`flex-grow w-full bg-gray-900 text-gray-300 border rounded-md shadow-sm p-4 font-mono text-sm focus:ring-2 focus:ring-indigo-500 transition-all resize-y ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`} 
-                        spellCheck="false"
+                        className={`flex-1 flex flex-col min-h-[120px] border rounded-md shadow-sm transition-all ${isDragging ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-gray-700'} bg-[#101828]`}
+                        style={getWrapperStyle(autoExtendData)}
                         onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                         onDragOver={(e) => e.preventDefault()}
                         onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -387,20 +446,34 @@ const LineRemoverPage: React.FC = () => {
                             setIsDragging(false);
                             if (e.dataTransfer.files?.[0]) readFile(e.dataTransfer.files[0]);
                         }}
-                    />
+                    >
+                        <CodeEditor
+                            value={inputText}
+                            onChange={(val) => setInputText(val)}
+                            placeholder="Drag & drop a file, or paste your database content here..."
+                            autoExtend={autoExtendData}
+                        />
+                    </div>
                 </div>
-                <div className="flex-1 flex flex-col min-w-[200px]">
-                     <label htmlFor="output-text" className="flex-shrink-0 block text-sm font-medium text-gray-300 mb-2">Processed Output</label>
-                    <textarea ref={rightRef} id="output-text" value={outputText} readOnly placeholder="Result will appear here after processing..." className="flex-grow w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-4 font-mono text-sm resize-y" spellCheck="false" />
+                <div className="flex-1 flex flex-col min-h-0 min-w-[200px]">
+                    <label htmlFor="output-text" className="flex-shrink-0 block text-sm font-medium text-gray-300 mb-2">Processed Output</label>
+                    <div ref={rightRef} className="flex-1 flex flex-col min-h-[120px] border bg-[#101828] border-gray-700 rounded-md shadow-sm" style={getWrapperStyle(autoExtendData)}>
+                        <CodeEditor
+                            value={outputText}
+                            editable={false}
+                            placeholder="Result will appear here after processing..."
+                            autoExtend={autoExtendData}
+                        />
+                    </div>
                 </div>
             </div>
-            
+
             <div className="flex-shrink-0 mt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
                 <button onClick={handleProcess} disabled={isProcessButtonDisabled} className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-red-500 disabled:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                    {isProcessing ? <><LoadingSpinner/>Processing...</> : <><TrashIcon/>{getButtonText()}</>}
+                    {isProcessing ? <><LoadingSpinner />Processing...</> : <><TrashIcon />{getButtonText()}</>}
                 </button>
                 <button onClick={handleCopy} disabled={!outputText} className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-200 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                     <CopyIcon />{copyStatus}
+                    <CopyIcon />{copyStatus}
                 </button>
                 <button onClick={handleDownload} disabled={!outputText} className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-200 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                     <DownloadIcon />Download File

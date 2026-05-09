@@ -5,6 +5,7 @@ import { CopyIcon, DownloadIcon, ProcessIcon, UploadIcon, LoadingSpinner } from 
 import { Tooltip } from '../components/Tooltip';
 import { ExpandableDescription } from '../components/ExpandableDescription';
 import { useSyncedResize } from '../hooks/useSyncedResize';
+import { CodeEditor } from '../components/CodeEditor';
 
 type Condition = 'none' | '<' | '=' | '>';
 type Operation = 'fixed' | 'increase' | 'decrease' | 'multiply' | 'divide';
@@ -35,7 +36,7 @@ const TransformerPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     
-    const { leftRef, rightRef } = useSyncedResize();
+    const { leftRef, rightRef, isManuallyResized } = useSyncedResize();
     
     const [applyToBlock, setApplyToBlock] = useState<boolean>(() => getInitialState('transformer_applyToBlock', false));
     const [sourceKey, setSourceKey] = useState<string>(() => getInitialState('transformer_sourceKey', ''));
@@ -46,6 +47,7 @@ const TransformerPage: React.FC = () => {
     const [operation, setOperation] = useState<Operation>(() => getInitialState('transformer_operation', 'multiply'));
     const [operationValue, setOperationValue] = useState<string>(() => getInitialState('transformer_operationValue', ''));
     const [roundDecimals, setRoundDecimals] = useState<boolean>(() => getInitialState('transformer_roundDecimals', false));
+    const [autoExtendData, setAutoExtendData] = useState<boolean>(() => getInitialState('transformer_autoExtendData', false));
 
     // --- State Persistence Effects ---
     useEffect(() => { safeSetLocalStorage('transformer_inputText', inputText); }, [inputText]);
@@ -59,6 +61,15 @@ const TransformerPage: React.FC = () => {
     useEffect(() => { safeSetLocalStorage('transformer_operation', operation); }, [operation]);
     useEffect(() => { safeSetLocalStorage('transformer_operationValue', operationValue); }, [operationValue]);
     useEffect(() => { safeSetLocalStorage('transformer_roundDecimals', roundDecimals); }, [roundDecimals]);
+    useEffect(() => { safeSetLocalStorage('transformer_autoExtendData', autoExtendData); }, [autoExtendData]);
+
+    const getWrapperStyle = (baseHeightOrAutoExtend: string | boolean, autoExtendParam?: boolean): React.CSSProperties => {
+        const autoExtend = typeof baseHeightOrAutoExtend === 'boolean' ? baseHeightOrAutoExtend : (autoExtendParam || false);
+        const baseHeight = typeof baseHeightOrAutoExtend === 'string' ? baseHeightOrAutoExtend : '120px';
+        if (autoExtend) return { minHeight: baseHeight, flex: '1 1 auto', position: 'relative' };
+        if (isManuallyResized) return { minHeight: baseHeight, flex: 'none', resize: 'vertical', overflow: 'hidden', position: 'relative' };
+        return { minHeight: baseHeight, flex: '1 1 0%', resize: 'vertical', overflow: 'hidden', position: 'relative' };
+    };
 
 
     const calculatedIndentation = useMemo(() => {
@@ -154,19 +165,27 @@ const TransformerPage: React.FC = () => {
         (condition !== 'none' && isNaN(parseFloat(conditionValue))) || isNaN(parseFloat(operationValue));
 
     return (
-        <div className="w-full bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-6 border border-gray-700 flex flex-col flex-grow min-h-max">
+        <div className="w-full bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-6 border border-gray-700 flex flex-col flex-grow min-h-0">
             <div className="flex-shrink-0 mb-6 p-3 sm:p-4 border border-gray-700 rounded-lg bg-gray-800">
                 <div className="flex items-center space-x-2 mb-3">
                     <h2 className="text-xl font-bold text-white">Transformer</h2>
-                    <Tooltip text="A powerful tool to modify numerical values in your data." />
+                    <Tooltip text={`Perform mathematical operations on specific keys.\nYou can conditionally filter which blocks get transformed using the Source Key.\nThis tool supports both basic line-by-line editing and indentation-based block editing.`} />
+                    
+                    <div className="ml-auto flex items-center">
+                    </div>
                 </div>
-                
+
                 <ExpandableDescription title="Modify numerical values based on conditions.">
                         <p>
                             Modify numerical values based on conditions, either line-by-line or within structured data blocks.
                             This tool can operate on an entire block of data (determined by indentation) or on individual lines.
                         </p>
-                        <ul className="list-disc pl-5 space-y-1">
+                        <p className="mt-2 text-indigo-300 font-medium">
+                            <span className="font-bold underline">Line-by-line Mode (Default):</span> Applies operations individually per line.
+                            <br/><span className="font-bold underline">Block Mode (Apply to Block):</span> Modifies target keys inside a block if the block itself meets a condition based on the Source Key.
+                            <br/><span className="font-bold underline">Important:</span> A block is defined by the first line containing the Source Key and continues until it encounters a line with indentation less than or equal to the starting line. The Start Key must be uniquely identifiable.
+                        </p>
+                        <ul className="list-disc pl-5 space-y-1 mt-2">
                             <li><strong>Source Key:</strong> The identifier to look for (e.g. <code>Level: </code>).</li>
                             <li><strong>Condition:</strong> Only change values when the source meets this condition.</li>
                             <li><strong>Target Key:</strong> (Only in Block mode) Instead of modifying the Source Key, modify this different key inside the same block when the condition is met.</li>
@@ -247,7 +266,7 @@ const TransformerPage: React.FC = () => {
                              <div>
                                 <div className="flex items-center space-x-2">
                                     <label htmlFor="operation" className="block text-sm font-medium text-gray-300 mb-1">Operation</label>
-                                    <Tooltip text="The mathematical operation to apply to the Target Key's value." />
+                                    <Tooltip text={`- Fixed Value: Overwrite the target key's value entirely.\n- Increase/Decrease: Add or subtract a specific number from the original value.\n- Multipy/Divide: Scale the original value by a numerical factor.`} />
                                 </div>
                                 <select id="operation" value={operation} onChange={(e) => setOperation(e.target.value as Operation)} className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                                     <option value="fixed">Change to Fixed Value</option>
@@ -284,23 +303,30 @@ const TransformerPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex-1 min-h-[400px] lg:min-h-[300px] flex flex-col lg:flex-row gap-6 pb-4">
-                <div className="flex-1 flex flex-col min-w-[200px]">
+            <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-6 pb-4">
+                <div className="flex-1 flex flex-col min-h-0 min-w-[200px]">
                     <div className="flex-shrink-0 flex items-center justify-between mb-2">
                         <label htmlFor="input-text" className="block text-sm font-medium text-gray-300">Input Data</label>
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-all">
-                            <UploadIcon className="h-4 w-4 mr-2" /> Upload File
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center space-x-2 text-sm text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
+                                <input 
+                                    type="checkbox" 
+                                    checked={autoExtendData} 
+                                    onChange={(e) => setAutoExtendData(e.target.checked)} 
+                                    className="h-3.5 w-3.5 rounded bg-[#101828] border-gray-600 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                                />
+                                <span>Auto-Extend Views</span>
+                            </label>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-[#1e293b] hover:bg-[#334155] transition-all">
+                                <UploadIcon className="h-4 w-4 mr-2" /> Upload File
+                            </button>
+                        </div>
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".txt,.yaml,.yml,text/plain" />
                     </div>
-                    <textarea 
+                    <div 
                         ref={leftRef}
-                        id="input-text" 
-                        value={inputText} 
-                        onChange={(e) => setInputText(e.target.value)} 
-                        placeholder="Drag & drop a file, or paste your database content here..." 
-                        className={`flex-grow w-full bg-gray-900 text-gray-300 border rounded-md shadow-sm p-4 font-mono text-sm focus:ring-2 focus:ring-indigo-500 transition-all resize-y ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`} 
-                        spellCheck="false"
+                        className={`flex-1 flex flex-col min-h-[120px] border rounded-md shadow-sm transition-all ${isDragging ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-gray-700'} bg-[#101828]`}
+                        style={getWrapperStyle(autoExtendData)}
                         onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                         onDragOver={(e) => e.preventDefault()}
                         onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -309,11 +335,25 @@ const TransformerPage: React.FC = () => {
                             setIsDragging(false);
                             if (e.dataTransfer.files?.[0]) readFile(e.dataTransfer.files[0]);
                         }}
-                    />
+                    >
+                        <CodeEditor 
+                            value={inputText} 
+                            onChange={(val) => setInputText(val)} 
+                            placeholder="Drag & drop a file, or paste your database content here..." 
+                            autoExtend={autoExtendData}
+                        />
+                    </div>
                 </div>
-                <div className="flex-1 flex flex-col min-w-[200px]">
+                <div className="flex-1 flex flex-col min-h-0 min-w-[200px]">
                      <label htmlFor="output-text" className="flex-shrink-0 block text-sm font-medium text-gray-300 mb-2">Processed Output</label>
-                    <textarea ref={rightRef} id="output-text" value={outputText} readOnly placeholder="Result will appear here after processing..." className="flex-grow w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-4 font-mono text-sm resize-y" spellCheck="false" />
+                    <div ref={rightRef} className="flex-1 flex flex-col min-h-[120px] border bg-[#101828] border-gray-700 rounded-md shadow-sm" style={getWrapperStyle(autoExtendData)}>
+                        <CodeEditor 
+                            value={outputText} 
+                            editable={false}
+                            placeholder="Result will appear here after processing..." 
+                            autoExtend={autoExtendData}
+                        />
+                    </div>
                 </div>
             </div>
             

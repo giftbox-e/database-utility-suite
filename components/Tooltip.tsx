@@ -56,7 +56,12 @@ export const Tooltip: React.FC<{ text: string; children?: React.ReactNode }> = (
                 style={style}
                 className={`w-64 p-2 text-xs text-white bg-gray-900 border border-gray-600 rounded-md shadow-lg transition-opacity duration-300 pointer-events-none ${visible ? 'opacity-100' : 'opacity-0'}`}
             >
-                {text}
+                {text.split('\n').map((line, i) => (
+                    <React.Fragment key={i}>
+                        {line}
+                        {i < text.split('\n').length - 1 && <br />}
+                    </React.Fragment>
+                ))}
             </div>
         </div>
     );

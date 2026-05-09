@@ -1,16 +1,18 @@
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { safeSetLocalStorage } from '../lib/storage';
 import { AdvancedLinesDiffComputer, LinesDiff } from 'vscode-diff';
 import { UploadIcon, DownloadIcon, CopyIcon, PencilAltIcon, ArrowRightIcon, ArrowLeftIcon } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
 import { ExpandableDescription } from '../components/ExpandableDescription';
+import { useSyncedResize } from '../hooks/useSyncedResize';
+import CodeMirror from '@uiw/react-codemirror';
+import { yaml } from '@codemirror/lang-yaml';
+import { EditorView } from '@codemirror/view';
 
 type DiffLineType = 'common' | 'added' | 'removed';
 type DiffViewLine = { type: DiffLineType | 'empty'; line: string };
-type SelectionRange = { start: number; end: number } | null; // 0-based, inclusive
+type SelectionRange = { start: number; end: number } | null;
 
-// --- Helper Functions ---
 const createDownload = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -20,8 +22,6 @@ const createDownload = (filename: string, content: string) => {
     element.click();
     document.body.removeChild(element);
 };
-
-import { useSyncedResize } from '../hooks/useSyncedResize';
 
 const getInitialState = <T,>(key: string, defaultValue: T): T => {
     try {
@@ -39,8 +39,6 @@ const getInitialState = <T,>(key: string, defaultValue: T): T => {
     }
 };
 
-
-// --- Editor Panel Component ---
 const EditorPanel: React.FC<{
     containerRef?: React.RefObject<HTMLDivElement>;
     content: string;
@@ -50,120 +48,152 @@ const EditorPanel: React.FC<{
     isDragging: boolean;
     setIsDragging: (isDragging: boolean) => void;
     dropHandler: (e: React.DragEvent<HTMLDivElement>) => void;
-    onScroll: (e: React.UIEvent<HTMLTextAreaElement>) => void;
+    onScroll: (scrollTop: number, scrollLeft: number) => void;
     setScrollTop: (top: number, left: number) => void;
+    autoExtend: boolean;
+    isManuallyResized: boolean;
 }> = ({
     containerRef, content, onContentChange, onSelectionChange, diffLines, isDragging, setIsDragging,
-    dropHandler, onScroll, setScrollTop
+    dropHandler, onScroll, setScrollTop, autoExtend, isManuallyResized
 }) => {
-    const highlightsRef = useRef<HTMLDivElement>(null);
-    const lineNumbersRef = useRef<HTMLDivElement>(null);
-    const editorRef = useRef<HTMLTextAreaElement>(null);
-    const lineCount = content.split('\n').length;
-    
-    // This effect is crucial for synchronizing scroll positions from the parent
-    useEffect(() => {
-        const handleParentScroll = (e: Event) => {
-            const { top, left } = (e as CustomEvent).detail;
-             if (editorRef.current) {
-                if (editorRef.current.scrollTop !== top) editorRef.current.scrollTop = top;
-                if (editorRef.current.scrollLeft !== left) editorRef.current.scrollLeft = left;
+        const highlightsRef = useRef<HTMLDivElement>(null);
+        const lineNumbersRef = useRef<HTMLDivElement>(null);
+        const editorWrapperRef = useRef<HTMLDivElement>(null);
+        const lineCount = content.split('\n').length;
+        const internalScrollRef = useRef(false);
+
+        // Sync external scroll coming from the parent (the other editor)
+        useEffect(() => {
+            const handleParentScroll = (e: Event) => {
+                const { top, left } = (e as CustomEvent).detail;
+                if (editorWrapperRef.current) {
+                    const scroller = editorWrapperRef.current.querySelector('.cm-scroller');
+                    if (scroller) {
+                        internalScrollRef.current = true;
+                        if (scroller.scrollTop !== top) scroller.scrollTop = top;
+                        if (scroller.scrollLeft !== left) scroller.scrollLeft = left;
+
+                        if (highlightsRef.current) {
+                            highlightsRef.current.scrollTop = scroller.scrollTop;
+                            highlightsRef.current.scrollLeft = scroller.scrollLeft;
+                        }
+                        if (lineNumbersRef.current) {
+                            lineNumbersRef.current.scrollTop = scroller.scrollTop;
+                        }
+                    }
+                }
+            };
+
+            const currentRef = containerRef?.current || editorWrapperRef.current;
+            currentRef?.addEventListener('sync-scroll', handleParentScroll as EventListener);
+            return () => {
+                currentRef?.removeEventListener('sync-scroll', handleParentScroll as EventListener);
+            }
+        }, []);
+
+        const getLineClasses = (type: DiffViewLine['type']) => {
+            switch (type) {
+                case 'added': return 'bg-green-800/40';
+                case 'removed': return 'bg-red-800/40';
+                default: return '';
             }
         };
 
-        const currentEditorRef = editorRef.current;
-        currentEditorRef?.addEventListener('sync-scroll', handleParentScroll);
-        return () => {
-            currentEditorRef?.removeEventListener('sync-scroll', handleParentScroll);
-        }
-    }, []);
+        const getWrapperStyle = (): React.CSSProperties => {
+            const baseHeight = '120px';
+            if (autoExtend) return { minHeight: baseHeight, flex: '1 1 auto', position: 'relative' };
+            if (isManuallyResized) return { minHeight: baseHeight, flex: 'none', resize: 'vertical', overflow: 'hidden', position: 'relative' };
+            return { minHeight: baseHeight, flex: '1 1 0%', resize: 'vertical', overflow: 'hidden', position: 'relative' };
+        };
 
-    const syncScrollFromEditor = (e: React.UIEvent<HTMLTextAreaElement>) => {
-        const editor = e.currentTarget;
-        if (highlightsRef.current) {
-            highlightsRef.current.scrollTop = editor.scrollTop;
-            highlightsRef.current.scrollLeft = editor.scrollLeft;
-        }
-        if (lineNumbersRef.current) {
-            lineNumbersRef.current.scrollTop = editor.scrollTop;
-        }
-        onScroll(e);
-    };
-
-    const handleSelect = (e: React.UIEvent<HTMLTextAreaElement>) => {
-        const textarea = e.currentTarget;
-        const { selectionStart, selectionEnd } = textarea;
-        if (selectionStart === selectionEnd) {
-            onSelectionChange(null);
-            return;
-        }
-
-        const textUpToStart = content.substring(0, selectionStart);
-        const textUpToEnd = content.substring(0, selectionEnd);
-        const startLine = textUpToStart.split('\n').length - 1;
-        const endLine = textUpToEnd.split('\n').length - 1;
-        onSelectionChange({ start: startLine, end: endLine });
-    };
-
-    const getLineClasses = (type: DiffViewLine['type']) => {
-        switch (type) {
-            case 'added': return 'bg-green-800/40';
-            case 'removed': return 'bg-red-800/40';
-            default: return '';
-        }
-    };
-    
-    const placeholder = 'Drag & drop a file, or paste your database content here...';
-    const showPlaceholder = content.length === 0;
-
-    return (
-        <div 
-            ref={containerRef}
-            className={`flex-grow w-full min-h-[200px] bg-gray-900 border rounded-md shadow-sm font-mono text-sm flex overflow-hidden resize-y ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-700'}`}
-            style={{ minHeight: '200px' }}
-            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragOver={(e) => e.preventDefault()}
-            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-            onDrop={dropHandler}
-        >
-            <div ref={lineNumbersRef} className="line-numbers w-12 text-right pr-4 text-gray-500 bg-gray-900 select-none overflow-y-hidden pt-2 leading-5">
-                {Array.from({ length: Math.max(lineCount,1) }, (_, i) => (
-                    <div key={i} className="h-5">{i + 1}</div>
-                ))}
-            </div>
-            <div className="editor-content-wrapper flex-1 relative">
-                {showPlaceholder && (
-                    <div className="absolute top-2 left-2 text-gray-500 pointer-events-none z-10">
-                        {placeholder}
+        return (
+            <div
+                ref={containerRef}
+                className={`w-full border rounded-md shadow-sm font-mono text-sm flex ${isDragging ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-gray-700'} bg-transparent`}
+                style={getWrapperStyle()}
+                onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                onDrop={dropHandler}
+            >
+                <div className="editor-content-wrapper flex-1 relative flex flex-col min-w-0 bg-[#101828]" ref={editorWrapperRef}>
+                    <div ref={highlightsRef} className="highlights absolute inset-0 overflow-hidden pointer-events-none whitespace-pre leading-[22px] tracking-normal font-mono z-10 w-full min-w-max text-transparent" style={{ paddingTop: "4px" }}>
+                        {diffLines.map((item, index) => (
+                            <div key={index} className={`h-[22px] px-1 ${getLineClasses(item.type)}`}>
+                                {item.line || '\u00A0'}
+                            </div>
+                        ))}
+                        <div className="h-[22px]"></div>
                     </div>
-                )}
-                <div ref={highlightsRef} className="highlights absolute inset-0 overflow-hidden pointer-events-none p-2 whitespace-pre leading-5">
-                    {diffLines.map((item, index) => (
-                        <div key={index} className={`h-5 ${getLineClasses(item.type)}`}>
-                            {/* Use a non-breaking space to ensure the div has height even for empty lines */}
-                            {item.line || '\u00A0'}
-                        </div>
-                    ))}
-                    {/* Add a filler div to ensure scrolling is consistent with textarea */}
-                    <div className="h-5"></div>
-                </div>
-                <textarea
-                    ref={editorRef}
-                    value={content}
-                    onChange={(e) => onContentChange(e.target.value)}
-                    onScroll={syncScrollFromEditor}
-                    onSelect={handleSelect}
-                    spellCheck="false"
-                    className="editor-textarea absolute inset-0 w-full h-full p-2 bg-transparent text-transparent caret-white resize-none border-none outline-none overflow-auto whitespace-pre font-mono text-sm leading-5"
-                />
-            </div>
-        </div>
-    );
-};
 
-// --- Main Comparator Page Component ---
+                    <CodeMirror
+                        theme="dark"
+                        value={content}
+                        onChange={(val) => onContentChange(val)}
+                        height={autoExtend ? "auto" : undefined}
+                        extensions={[
+                            yaml(),
+                            EditorView.theme({
+                                "&": { backgroundColor: "transparent !important", color: "#e2e8f0 !important", display: "flex", flexDirection: "column", height: "100%" },
+                                ".cm-content": { paddingTop: "4px", paddingBottom: "4px", color: "#e2e8f0 !important", minHeight: "100%" },
+                                ".cm-scroller": { overflow: "auto", fontFamily: "inherit", fontSize: "14px", lineHeight: "22px", backgroundColor: "transparent !important", height: "100%" },
+                                ".cm-line": { caretColor: "#528bff", padding: "0 4px" },
+                                ".cm-cursor": { borderLeftColor: "#528bff", borderWidth: "2px" },
+                                ".cm-selectionBackground, .cm-content ::selection": { backgroundColor: "#3e4451 !important" },
+                                ".cm-gutters": { backgroundColor: "#101828 !important", color: "#64748b !important", borderRight: "1px solid #374151 !important" },
+                                ".cm-activeLine": { backgroundColor: "rgba(255, 255, 255, 0.05) !important" },
+                                ".cm-activeLineGutter": { backgroundColor: "rgba(255, 255, 255, 0.05) !important" },
+                                "&.cm-editor.cm-focused": { outline: "none" }
+                            }, { dark: true }),
+                            EditorView.domEventHandlers({
+                                scroll: (e, view) => {
+                                    const scroller = e.target as HTMLElement;
+                                    if (highlightsRef.current) {
+                                        highlightsRef.current.scrollTop = scroller.scrollTop;
+                                        highlightsRef.current.scrollLeft = scroller.scrollLeft;
+                                    }
+                                    if (lineNumbersRef.current) {
+                                        lineNumbersRef.current.scrollTop = scroller.scrollTop;
+                                    }
+                                    if (internalScrollRef.current) {
+                                        internalScrollRef.current = false;
+                                        return;
+                                    }
+                                    onScroll(scroller.scrollTop, scroller.scrollLeft);
+                                }
+                            }),
+                            EditorView.updateListener.of((update) => {
+                                if (update.selectionSet) {
+                                    const range = update.state.selection.main;
+                                    if (range.empty) {
+                                        onSelectionChange(null);
+                                    } else {
+                                        const start = update.state.doc.lineAt(range.from).number - 1;
+                                        const end = update.state.doc.lineAt(range.to).number - 1;
+                                        onSelectionChange({ start, end });
+                                    }
+                                }
+                            })
+                        ]}
+                        basicSetup={{
+                            lineNumbers: true,
+                            foldGutter: true,
+                            highlightActiveLine: true,
+                            highlightActiveLineGutter: true,
+                            dropCursor: true,
+                            allowMultipleSelections: true,
+                            indentOnInput: true,
+                            bracketMatching: true,
+                        }}
+                        className={`z-20 w-full text-sm font-mono overflow-hidden flex flex-col ${autoExtend ? 'flex-grow min-h-0 relative' : 'absolute inset-0 h-full w-full'}`}
+                    />
+                </div>
+            </div>
+        );
+    };
+
 const ComparatorPage: React.FC = () => {
-    const { leftRef, rightRef } = useSyncedResize();
+    const { leftRef, rightRef, isManuallyResized } = useSyncedResize();
     const [fileAContent, setFileAContent] = useState<string>(() => getInitialState('comparator_fileAContent', ''));
     const [fileBContent, setFileBContent] = useState<string>(() => getInitialState('comparator_fileBContent', ''));
     const [fileAName, setFileAName] = useState<string>(() => getInitialState('comparator_fileAName', 'file_a.txt'));
@@ -172,6 +202,7 @@ const ComparatorPage: React.FC = () => {
 
     const [isDraggingA, setIsDraggingA] = useState(false);
     const [isDraggingB, setIsDraggingB] = useState(false);
+    const [autoExtendData, setAutoExtendData] = useState<boolean>(() => getInitialState('comparator_autoExtendData', false));
     const [realTimeComparison, setRealTimeComparison] = useState<boolean>(() => getInitialState('comparator_realTimeComparison', true));
     const [copyStatus, setCopyStatus] = useState('');
     const [selectionA, setSelectionA] = useState<SelectionRange>(null);
@@ -179,20 +210,19 @@ const ComparatorPage: React.FC = () => {
 
     const fileInputARef = useRef<HTMLInputElement>(null);
     const fileInputBRef = useRef<HTMLInputElement>(null);
-    const scrollARef = useRef<HTMLTextAreaElement>(null);
-    const scrollBRef = useRef<HTMLTextAreaElement>(null);
+    const scrollARef = leftRef as React.RefObject<HTMLDivElement>;
+    const scrollBRef = rightRef as React.RefObject<HTMLDivElement>;
     const debounceTimeoutRef = useRef<number | null>(null);
     const isSyncingScroll = useRef(false);
     const diffComputer = useMemo(() => new AdvancedLinesDiffComputer(), []);
 
-    // --- State Persistence Effects ---
     useEffect(() => { safeSetLocalStorage('comparator_fileAContent', fileAContent); }, [fileAContent]);
     useEffect(() => { safeSetLocalStorage('comparator_fileBContent', fileBContent); }, [fileBContent]);
     useEffect(() => { safeSetLocalStorage('comparator_fileAName', fileAName); }, [fileAName]);
     useEffect(() => { safeSetLocalStorage('comparator_fileBName', fileBName); }, [fileBName]);
     useEffect(() => { safeSetLocalStorage('comparator_realTimeComparison', realTimeComparison); }, [realTimeComparison]);
+    useEffect(() => { safeSetLocalStorage('comparator_autoExtendData', autoExtendData); }, [autoExtendData]);
 
-    // --- Comparison Logic ---
     const handleCompare = useCallback(() => {
         const result = diffComputer.computeDiff(fileAContent.split('\n'), fileBContent.split('\n'), {
             ignoreTrimWhitespace: true,
@@ -212,147 +242,155 @@ const ComparatorPage: React.FC = () => {
     const { viewA, viewB, minimap } = useMemo(() => {
         const aLines = fileAContent.split('\n');
         const bLines = fileBContent.split('\n');
-        const viewA: DiffViewLine[] = [];
-        const viewB: DiffViewLine[] = [];
+        const viewA: DiffViewLine[] = aLines.map(line => ({ type: 'common', line }));
+        const viewB: DiffViewLine[] = bLines.map(line => ({ type: 'common', line }));
         const minimap: DiffLineType[] = [];
 
         if (!diffResult) {
-            const len = Math.max(aLines.length, bLines.length);
-            for (let i = 0; i < len; i++) {
-                viewA.push({ type: 'common', line: aLines[i] ?? '' });
-                viewB.push({ type: 'common', line: bLines[i] ?? '' });
-            }
             return { viewA, viewB, minimap };
         }
 
-        let lastOriginalLine = 1;
-        let lastModifiedLine = 1;
-
         for (const change of diffResult.changes) {
-            const originalStart = change.originalRange.startLineNumber;
-            const modifiedStart = change.modifiedRange.startLineNumber;
-            const unchangedLineCount = originalStart - lastOriginalLine;
-
-            for (let i = 0; i < unchangedLineCount; i++) {
-                viewA.push({ type: 'common', line: aLines[lastOriginalLine + i - 1] });
-                viewB.push({ type: 'common', line: bLines[lastModifiedLine + i - 1] });
-                minimap.push('common');
+            if (!change.originalRange.isEmpty) {
+                for (let i = change.originalRange.startLineNumber; i < change.originalRange.endLineNumberExclusive; i++) {
+                    if (viewA[i - 1]) viewA[i - 1].type = 'removed';
+                }
             }
-
-            const oLen = change.originalRange.length;
-            const mLen = change.modifiedRange.length;
-            const maxLen = Math.max(oLen, mLen);
-
-            for (let i = 0; i < maxLen; i++) {
-                const oLine = i < oLen ? aLines[originalStart + i - 1] : undefined;
-                const mLine = i < mLen ? bLines[modifiedStart + i - 1] : undefined;
-                if (oLine !== undefined) {
-                    viewA.push({ type: 'removed', line: oLine });
-                    minimap.push('removed');
-                } else { viewA.push({ type: 'empty', line: '' }); }
-                if (mLine !== undefined) {
-                    viewB.push({ type: 'added', line: mLine });
-                    if (oLine === undefined) minimap.push('added');
-                } else { viewB.push({ type: 'empty', line: '' }); }
+            if (!change.modifiedRange.isEmpty) {
+                for (let i = change.modifiedRange.startLineNumber; i < change.modifiedRange.endLineNumberExclusive; i++) {
+                    if (viewB[i - 1]) viewB[i - 1].type = 'added';
+                }
             }
-            lastOriginalLine = change.originalRange.endLineNumberExclusive;
-            lastModifiedLine = change.modifiedRange.endLineNumberExclusive;
         }
 
-        while (lastOriginalLine <= aLines.length) {
-            viewA.push({ type: 'common', line: aLines[lastOriginalLine - 1] });
-            viewB.push({ type: 'common', line: bLines[lastModifiedLine - 1] });
-            minimap.push('common');
-            lastOriginalLine++;
-            lastModifiedLine++;
+        const maxLen = Math.max(viewA.length, viewB.length);
+        for (let i = 0; i < maxLen; i++) {
+            const aType = i < viewA.length ? viewA[i].type : 'common';
+            const bType = i < viewB.length ? viewB[i].type : 'common';
+            if (aType === 'removed') minimap.push('removed');
+            else if (bType === 'added') minimap.push('added');
+            else minimap.push('common');
         }
+
         return { viewA, viewB, minimap };
     }, [diffResult, fileAContent, fileBContent]);
 
-    // --- File Handling ---
     const readFile = (file: File, contentSetter: (content: string) => void, nameSetter: (name: string) => void) => { const reader = new FileReader(); reader.onload = (event) => { contentSetter(event.target?.result as string); nameSetter(file.name); }; reader.readAsText(file); };
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setContent: (c: string) => void, setName: (n: string) => void) => { if (e.target.files?.[0]) readFile(e.target.files[0], setContent, setName); e.target.value = ''; };
     const handleDrop = (e: React.DragEvent<HTMLDivElement>, setContent: (c: string) => void, setName: (n: string) => void) => { e.preventDefault(); setIsDraggingA(false); setIsDraggingB(false); if (e.dataTransfer.files?.[0]) readFile(e.dataTransfer.files[0], setContent, setName); };
 
-    // --- UI Actions ---
-    const setScroll = useCallback((ref: React.RefObject<HTMLTextAreaElement>, top: number, left: number) => {
+    const setScroll = useCallback((ref: React.RefObject<HTMLDivElement>, top: number, left: number) => {
         if (!ref.current) return;
         const event = new CustomEvent('sync-scroll', { detail: { top, left } });
         ref.current.dispatchEvent(event);
     }, []);
-    
-    const onScroll = (syncer: 'A' | 'B', e: React.UIEvent<HTMLTextAreaElement>) => {
+
+    const onScroll = (syncer: 'A' | 'B', top: number, left: number) => {
         if (isSyncingScroll.current) return;
         isSyncingScroll.current = true;
         const targetRef = syncer === 'A' ? scrollBRef : scrollARef;
-        setScroll(targetRef, e.currentTarget.scrollTop, e.currentTarget.scrollLeft);
+        setScroll(targetRef, top, left);
         requestAnimationFrame(() => { isSyncingScroll.current = false; });
     };
 
-    const handleApplyChanges = useCallback((source: 'A' | 'B', mode: 'add' | 'overwrite') => {
+    const handleApplyChanges = useCallback((source: 'A' | 'B', action: 'add' | 'overwrite') => {
         if (!diffResult) return;
         const sourceIsA = source === 'A';
         const sourceContent = sourceIsA ? fileAContent : fileBContent;
         const targetContent = sourceIsA ? fileBContent : fileAContent;
         const setTargetContent = sourceIsA ? setFileBContent : setFileAContent;
+
         const sourceSelection = sourceIsA ? selectionA : selectionB;
+        const targetSelection = sourceIsA ? selectionB : selectionA;
+
+        const targetLines = targetContent.split('\n');
         const sourceLines = sourceContent.split('\n');
 
-        if (mode === 'add') {
-            const linesToAdd = new Set<string>();
-            const changes = diffResult.changes.filter(c => {
-                const isDeletionFromSource = sourceIsA ? !c.originalRange.isEmpty && c.modifiedRange.isEmpty : c.originalRange.isEmpty && !c.modifiedRange.isEmpty;
-                if (!isDeletionFromSource) return false;
-                const sourceRange = sourceIsA ? c.originalRange : c.modifiedRange;
-                return !sourceSelection || (sourceRange.startLineNumber - 1 <= sourceSelection.end && sourceRange.endLineNumberExclusive - 1 > sourceSelection.start);
-            });
-            changes.forEach(c => {
-                const sourceRange = sourceIsA ? c.originalRange : c.modifiedRange;
-                for (let i = sourceRange.startLineNumber; i < sourceRange.endLineNumberExclusive; i++) {
-                    linesToAdd.add(sourceLines[i - 1]);
-                }
-            });
-            if (linesToAdd.size > 0) {
-                setTargetContent((targetContent.trim() ? targetContent + '\n' : '') + [...linesToAdd].join('\n'));
-            }
-        } else { // overwrite
-            const linesToProcess = sourceSelection ? sourceLines.slice(sourceSelection.start, sourceSelection.end + 1) : sourceLines;
+        if (action === 'overwrite') {
             const sourceMap = new Map<string, string>();
-            linesToProcess.forEach(line => {
-                const keyMatch = line.match(/^(\s*[^:]+:)/);
-                if (keyMatch) sourceMap.set(keyMatch[1], line);
-            });
+            const sStart = sourceSelection ? sourceSelection.start : 0;
+            const sEnd = sourceSelection ? sourceSelection.end : sourceLines.length - 1;
+
+            for (let i = sStart; i <= sEnd; i++) {
+                const line = sourceLines[i];
+                if (line) {
+                    const keyMatch = line.match(/^(\s*[^:]+:)/);
+                    if (keyMatch) sourceMap.set(keyMatch[1], line);
+                }
+            }
             if (sourceMap.size === 0) return;
-            const targetLines = targetContent.split('\n');
-            const newTargetLines = targetLines.map(line => {
-                const keyMatch = line.match(/^(\s*[^:]+:)/);
-                return (keyMatch && sourceMap.has(keyMatch[1])) ? sourceMap.get(keyMatch[1])! : line;
+
+            let changed = false;
+            const tStart = targetSelection ? targetSelection.start : 0;
+            const tEnd = targetSelection ? targetSelection.end : targetLines.length - 1;
+
+            for (let i = tStart; i <= tEnd; i++) {
+                const line = targetLines[i];
+                if (line) {
+                    const keyMatch = line.match(/^(\s*[^:]+:)/);
+                    if (keyMatch && sourceMap.has(keyMatch[1])) {
+                        targetLines[i] = sourceMap.get(keyMatch[1])!;
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) setTargetContent(targetLines.join('\n'));
+        } else if (action === 'add') {
+            const changesToApply = diffResult.changes.filter(c => {
+                const sRange = sourceIsA ? c.originalRange : c.modifiedRange;
+                const tRange = sourceIsA ? c.modifiedRange : c.originalRange;
+
+                if (!tRange.isEmpty) return false;
+
+                if (targetSelection && (tRange.startLineNumber - 1 > targetSelection.end + 1 || tRange.startLineNumber - 1 < targetSelection.start)) {
+                    return false;
+                }
+                if (sourceSelection && (sRange.startLineNumber - 1 > sourceSelection.end || sRange.endLineNumberExclusive - 2 < sourceSelection.start)) {
+                    return false;
+                }
+                return true;
             });
-            setTargetContent(newTargetLines.join('\n'));
+
+            if (changesToApply.length === 0) return;
+
+            [...changesToApply].reverse().forEach(c => {
+                const sRange = sourceIsA ? c.originalRange : c.modifiedRange;
+                const tRange = sourceIsA ? c.modifiedRange : c.originalRange;
+                const replacementLines = sourceLines.slice(sRange.startLineNumber - 1, sRange.endLineNumberExclusive - 1);
+                targetLines.splice(tRange.startLineNumber - 1, 0, ...replacementLines);
+            });
+            setTargetContent(targetLines.join('\n'));
         }
     }, [diffResult, fileAContent, fileBContent, selectionA, selectionB]);
 
     const handleCopy = useCallback((content: string, panel: string) => { if (!content) return; navigator.clipboard.writeText(content).then(() => { setCopyStatus(`Copied Panel ${panel}`); setTimeout(() => setCopyStatus(''), 2000); }); }, []);
 
     return (
-        <div className="w-full flex flex-col bg-gray-800 rounded-lg p-2 sm:p-4 shadow-2xl border border-gray-700 flex-grow min-h-max">
+        <div className="w-full flex flex-col bg-gray-800 rounded-lg p-2 sm:p-4 shadow-2xl border border-gray-700 flex-grow min-h-0">
             <div className="flex items-center space-x-2 mb-2 px-2">
                 <h2 className="text-xl font-bold text-white">Comparator (Inoperable)</h2>
-                <Tooltip text="Compare two versions of a file side-by-side." />
+                <Tooltip text={`Compare two versions of a file side-by-side.
+Provides visual highlighting for added, removed, and modified lines with a unified diff feel.`} />
+
+                <div className="ml-auto flex items-center">
+                </div>
             </div>
 
             <ExpandableDescription title={<>Compare, sync, and merge differences between two files.</>}>
-                    <p>
-                        A powerful diff tool to spot differences and merge changes. Drag and drop two files (A and B) or paste content to see side-by-side differences.
-                    </p>
-                    <ul className="list-disc pl-5 space-y-1">
-                        <li><strong>Highlighting:</strong> Added lines are green (B), removed lines are red (A). Unchanged lines are gray.</li>
-                        <li><strong>Sync Actions:</strong> Use the green arrows (<ArrowLeftIcon className="h-3 w-3 inline" /> / <ArrowRightIcon className="h-3 w-3 inline" />) to add missing lines across files. Use the orange pencil (<PencilAltIcon className="h-3 w-3 inline m-0" />) to overwrite lines with matching keys.</li>
-                        <li><strong>Sub-selection:</strong> If you highlight specific text in either editor, the sync actions will only apply to the selected lines. Otherwise, it will apply to the entire file.</li>
-                    </ul>
+                <p>
+                    A powerful diff tool to spot differences and merge changes. Drag and drop two files (A and B) or paste content to see side-by-side differences.
+                </p>
+                <p className="mt-2 text-indigo-300 font-medium">
+                    <span className="font-bold underline">Important:</span> Only lines deleted (red) or added (green) can be synchronized.
+                </p>
+                <ul className="list-disc pl-5 mt-2 space-y-1">
+                    <li><strong>Highlighting:</strong> Added lines are green (B), removed lines are red (A). Unchanged lines are gray.</li>
+                    <li><strong>Sync Actions:</strong> Use the green arrows (<ArrowLeftIcon className="h-3 w-3 inline" /> / <ArrowRightIcon className="h-3 w-3 inline" />) to add missing lines across files. Use the orange pencil (<PencilAltIcon className="h-3 w-3 inline m-0" />) to overwrite lines with matching keys.</li>
+                    <li><strong>Sub-selection:</strong> If you highlight specific text in either editor, the sync actions will only apply to the selected lines. Otherwise, it will apply to the entire file.</li>
+                </ul>
             </ExpandableDescription>
 
-            <header className="flex-shrink-0 p-3 mb-2 bg-gray-800 border border-gray-700 rounded-lg shadow-md">
+            <header className="flex-shrink-0 p-3 mb-4 bg-gray-800 border border-gray-700 rounded-lg shadow-md">
                 <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
                     <div className="flex items-center"><input type="checkbox" id="realtime-comparison" checked={realTimeComparison} onChange={(e) => setRealTimeComparison(e.target.checked)} className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer" /><label htmlFor="realtime-comparison" className="ml-2 text-sm font-medium text-gray-300 cursor-pointer">Real-time</label></div>
                     {!realTimeComparison && (<button onClick={handleCompare} className="px-3 py-1 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors">Compare</button>)}
@@ -366,35 +404,48 @@ const ComparatorPage: React.FC = () => {
                 </div>
             </header>
 
-            <div className="flex-1 min-h-[500px] lg:min-h-[400px] flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] gap-4 pb-4">
-                <div className="flex flex-col relative lg:min-h-0">
+            <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] gap-4 pb-4 min-w-0">
+                <div className="flex flex-col relative lg:min-h-0 min-w-0">
                     <div className="flex-shrink-0 flex justify-between items-center mb-2 px-1">
                         <h3 className="font-semibold text-gray-200 truncate">File A: <span className="text-gray-400 font-normal">{fileAName}</span></h3>
-                        <div className="flex items-center gap-2">
-                             <button onClick={() => fileInputARef.current?.click()} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-colors"><UploadIcon className="h-4 w-4 mr-1" /> A</button>
-                             <button onClick={() => handleCopy(fileAContent, 'A')} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-colors"><CopyIcon /> A</button>
-                             <button onClick={() => createDownload(fileAName, fileAContent)} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-colors"><DownloadIcon /> A</button>
-                             <input ref={fileInputARef} type="file" className="hidden" onChange={(e) => handleFileChange(e, setFileAContent, setFileAName)} />
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center space-x-2 text-sm text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={autoExtendData}
+                                    onChange={(e) => setAutoExtendData(e.target.checked)}
+                                    className="h-3.5 w-3.5 rounded bg-[#101828] border-gray-600 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                                />
+                                <span>Auto-Extend</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => fileInputARef.current?.click()} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-[#1e293b] hover:bg-[#334155] transition-colors"><UploadIcon className="h-4 w-4 mr-1" /> A</button>
+                                <button onClick={() => handleCopy(fileAContent, 'A')} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-800 hover:bg-gray-700 transition-colors"><CopyIcon /> A</button>
+                                <button onClick={() => createDownload(fileAName, fileAContent)} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-800 hover:bg-gray-700 transition-colors"><DownloadIcon /> A</button>
+                                <input ref={fileInputARef} type="file" className="hidden" onChange={(e) => handleFileChange(e, setFileAContent, setFileAName)} />
+                            </div>
                         </div>
                     </div>
-                    <EditorPanel containerRef={leftRef as React.RefObject<HTMLDivElement>} content={fileAContent} onContentChange={setFileAContent} onSelectionChange={setSelectionA} diffLines={viewA} isDragging={isDraggingA} setIsDragging={setIsDraggingA} dropHandler={(e) => handleDrop(e, setFileAContent, setFileAName)} onScroll={(e) => onScroll('A', e)} setScrollTop={(top, left) => setScroll(scrollARef, top, left)} />
+                    <EditorPanel containerRef={scrollARef} content={fileAContent} onContentChange={setFileAContent} onSelectionChange={setSelectionA} diffLines={viewA} isDragging={isDraggingA} setIsDragging={setIsDraggingA} dropHandler={(e) => handleDrop(e, setFileAContent, setFileAName)} onScroll={(top, left) => onScroll('A', top, left)} setScrollTop={(top, left) => setScroll(scrollARef, top, left)} autoExtend={autoExtendData} isManuallyResized={isManuallyResized} />
                 </div>
-                <div className="hidden lg:block w-2.5 bg-gray-800 rounded-full overflow-hidden pointer-events-none self-center h-[calc(100%-20px)]">
-                    <div className="h-full" style={{ transform: `scaleY(${Math.min(1, 500 / minimap.length)})`}}>
-                    {minimap.map((type, i) => ( <div key={i} className={`h-0.5 ${ type === 'added' ? 'bg-green-500' : type === 'removed' ? 'bg-red-500' : 'bg-transparent' }`} /> ))}
+
+                <div className="hidden lg:block w-3 bg-gray-800 rounded-full overflow-hidden pointer-events-none self-center h-[calc(100%-20px)] border border-gray-700">
+                    <div className="h-full w-full" style={{ transform: `scaleY(${Math.min(1, 500 / Math.max(1, minimap.length))})`, transformOrigin: 'top' }}>
+                        {minimap.map((type, i) => (<div key={i} className={`w-full h-0.5 ${type === 'added' ? 'bg-green-500 opacity-80' : type === 'removed' ? 'bg-red-500 opacity-80' : 'bg-transparent'}`} />))}
                     </div>
                 </div>
-                <div className="flex flex-col relative lg:min-h-0">
-                     <div className="flex-shrink-0 flex justify-between items-center mb-2 px-1">
+
+                <div className="flex flex-col relative lg:min-h-0 min-w-0">
+                    <div className="flex-shrink-0 flex justify-between items-center mb-2 px-1">
                         <h3 className="font-semibold text-gray-200 truncate">File B: <span className="text-gray-400 font-normal">{fileBName}</span></h3>
                         <div className="flex items-center gap-2">
-                             <button onClick={() => fileInputBRef.current?.click()} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-colors"><UploadIcon className="h-4 w-4 mr-1" /> B</button>
-                             <button onClick={() => handleCopy(fileBContent, 'B')} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-colors"><CopyIcon /> B</button>
-                             <button onClick={() => createDownload(fileBName, fileBContent)} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-colors"><DownloadIcon /> B</button>
-                             <input ref={fileInputBRef} type="file" className="hidden" onChange={(e) => handleFileChange(e, setFileBContent, setFileBName)} />
+                            <button onClick={() => fileInputBRef.current?.click()} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-[#1e293b] hover:bg-[#334155] transition-colors"><UploadIcon className="h-4 w-4 mr-1" /> B</button>
+                            <button onClick={() => handleCopy(fileBContent, 'B')} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-800 hover:bg-gray-700 transition-colors"><CopyIcon /> B</button>
+                            <button onClick={() => createDownload(fileBName, fileBContent)} className="flex items-center px-2 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-800 hover:bg-gray-700 transition-colors"><DownloadIcon /> B</button>
+                            <input ref={fileInputBRef} type="file" className="hidden" onChange={(e) => handleFileChange(e, setFileBContent, setFileBName)} />
                         </div>
                     </div>
-                    <EditorPanel containerRef={rightRef as React.RefObject<HTMLDivElement>} content={fileBContent} onContentChange={setFileBContent} onSelectionChange={setSelectionB} diffLines={viewB} isDragging={isDraggingB} setIsDragging={setIsDraggingB} dropHandler={(e) => handleDrop(e, setFileBContent, setFileBName)} onScroll={(e) => onScroll('B', e)} setScrollTop={(top, left) => setScroll(scrollBRef, top, left)} />
+                    <EditorPanel containerRef={scrollBRef} content={fileBContent} onContentChange={setFileBContent} onSelectionChange={setSelectionB} diffLines={viewB} isDragging={isDraggingB} setIsDragging={setIsDraggingB} dropHandler={(e) => handleDrop(e, setFileBContent, setFileBName)} onScroll={(top, left) => onScroll('B', top, left)} setScrollTop={(top, left) => setScroll(scrollBRef, top, left)} autoExtend={autoExtendData} isManuallyResized={isManuallyResized} />
                 </div>
             </div>
         </div>

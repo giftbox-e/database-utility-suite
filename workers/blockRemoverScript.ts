@@ -1,7 +1,18 @@
 export const blockRemoverWorkerScript = `
-  function getIndentation(line) {
-    const match = line.match(/^(\\s*)/);
-    return match ? match[1].length : 0;
+  function getIndentationLevel(line) {
+    const match = line.match(/^([ \\t]*)/);
+    if (!match) return 0;
+    let level = 0;
+    for (const char of match[1]) {
+      if (char === '\\t') level += 4;
+      else level += 1;
+    }
+    return level;
+  }
+
+  function getIndentationString(line) {
+    const match = line.match(/^([ \\t]*)/);
+    return match ? match[1] : '';
   }
 
   self.onmessage = (event) => {
@@ -18,13 +29,13 @@ export const blockRemoverWorkerScript = `
         indentationFilterValue,
         textToAdd,
         addPosition,
+        addPositionOffset,
         invertAddTextCondition
       } = event.data;
 
       const lines = inputText.split('\\n');
 
       if (indentationFilterMode && indentationFilterMode !== 'none') {
-        // --- INDENTATION FILTER MODE ---
         if (isNaN(indentationFilterValue)) {
             throw new Error('Invalid indentation filter value.');
         }
@@ -32,16 +43,16 @@ export const blockRemoverWorkerScript = `
         let newLines = [];
         switch (indentationFilterMode) {
             case 'gt':
-                newLines = lines.filter(line => getIndentation(line) <= indentationFilterValue);
+                newLines = lines.filter(line => getIndentationLevel(line) <= indentationFilterValue);
                 break;
             case 'lt':
-                newLines = lines.filter(line => getIndentation(line) >= indentationFilterValue);
+                newLines = lines.filter(line => getIndentationLevel(line) >= indentationFilterValue);
                 break;
             case 'eq_remove':
-                newLines = lines.filter(line => getIndentation(line) !== indentationFilterValue);
+                newLines = lines.filter(line => getIndentationLevel(line) !== indentationFilterValue);
                 break;
             case 'eq_maintain':
-                newLines = lines.filter(line => getIndentation(line) === indentationFilterValue);
+                newLines = lines.filter(line => getIndentationLevel(line) === indentationFilterValue);
                 break;
             default:
                 newLines = lines;
@@ -50,7 +61,6 @@ export const blockRemoverWorkerScript = `
         self.postMessage({ success: true, data: newLines.join('\\n') });
 
       } else {
-        // --- BLOCK PROCESSOR MODE ---
         if (includeIdentifierString && !blockStartIdentifier) {
           throw new Error('Missing block identifier when "Include String" is checked.');
         }
@@ -58,21 +68,21 @@ export const blockRemoverWorkerScript = `
           throw new Error('Missing keywords for this block mode.');
         }
 
-        const keywords = keywordsText.split('\\n').map(k => k.trim().toLowerCase()).filter(Boolean);
+        const keywords = (keywordsText || '').split('\\n').map(k => k.trim().toLowerCase()).filter(Boolean);
         if (keywords.length === 0 && mode !== 'addText' && !(mode === 'addText' && invertAddTextCondition)) {
           self.postMessage({ success: true, data: inputText });
           return;
         }
         
-        const startIndentation = getIndentation(blockStartIdentifier);
+        const startIndentationLevel = getIndentationLevel(blockStartIdentifier);
         const trimmedIdentifier = blockStartIdentifier.trim();
         
         const isBlockStart = (line) => {
             if (!line || line.trim() === '') return false;
             
-            const lineIndentation = getIndentation(line);
+            const lineIndentation = getIndentationLevel(line);
 
-            if (lineIndentation !== startIndentation) {
+            if (lineIndentation !== startIndentationLevel) {
                 return false;
             }
             
@@ -105,12 +115,23 @@ export const blockRemoverWorkerScript = `
 
           const currentBlock = [currentLine];
           let blockEndIndex = i + 1;
+          const currentIndentationLevel = getIndentationLevel(currentLine);
           
           while (blockEndIndex < lines.length) {
               const nextLine = lines[blockEndIndex];
-              if (nextLine.trim() !== '' && getIndentation(nextLine) <= startIndentation) {
+              const nextIndentLevel = getIndentationLevel(nextLine);
+              const nextTrimmed = nextLine.trim();
+
+              if (nextTrimmed === '') {
+                  currentBlock.push(nextLine);
+                  blockEndIndex++;
+                  continue;
+              }
+
+              if (nextIndentLevel <= currentIndentationLevel) {
                   break;
               }
+
               currentBlock.push(nextLine);
               blockEndIndex++;
           }
@@ -119,7 +140,7 @@ export const blockRemoverWorkerScript = `
               keywords.some(keyword => isMatch(line, keyword))
           );
 
-          const useReplaceMode = replaceWithText && replaceWithText.trim() !== '';
+          const useReplaceMode = replaceWithText !== undefined && replaceWithText !== null && replaceWithText.trim() !== '';
           let action = 'keep'; 
 
           if (mode === 'remove') {
@@ -147,31 +168,29 @@ export const blockRemoverWorkerScript = `
               }
           }
 
+          const startIndentationString = getIndentationString(currentLine);
+
           switch (action) {
             case 'keep':
               outputLines.push(...currentBlock);
               break;
             case 'replace':
-              const blockIndentation = ' '.repeat(startIndentation);
-              const indentedReplacement = replaceWithText.split('\\n').map(line => blockIndentation + line).join('\\n');
+              const indentedReplacement = replaceWithText.split('\\n').map(line => startIndentationString + line).join('\\n');
               outputLines.push(indentedReplacement);
               break;
             case 'addText':
-              const addedTextLines = textToAdd.split('\\n').map(line => {
-                // Add indentation relative to the block start, e.g., 2 extra spaces
-                const newIndentation = ' '.repeat(startIndentation + 2);
-                return newIndentation + line;
-              });
-              
+              const addedTextLines = textToAdd.split('\\n').map(line => startIndentationString + line);
+              const offset = addPositionOffset || 0;
               if (addPosition === 'start') {
-                  // Add after the first line (the block identifier)
-                  outputLines.push(currentBlock[0], ...addedTextLines, ...currentBlock.slice(1));
-              } else { // end
-                  outputLines.push(...currentBlock, ...addedTextLines);
+                  const safeOffset = Math.min(offset, currentBlock.length - 1);
+                  outputLines.push(...currentBlock.slice(0, safeOffset + 1), ...addedTextLines, ...currentBlock.slice(safeOffset + 1));
+              } else { 
+                  const safeOffset = Math.min(offset, currentBlock.length - 1);
+                  const insertIndex = currentBlock.length - safeOffset;
+                  outputLines.push(...currentBlock.slice(0, insertIndex), ...addedTextLines, ...currentBlock.slice(insertIndex));
               }
               break;
             case 'remove':
-              // Do nothing
               break;
           }
           
@@ -185,4 +204,4 @@ export const blockRemoverWorkerScript = `
       self.postMessage({ success: false, error: error.message });
     }
   };
-`
+`;

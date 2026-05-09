@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export function useSyncedResize<T extends HTMLElement = HTMLElement>() {
     const leftRef = useRef<T>(null);
     const rightRef = useRef<T>(null);
+    const [isManuallyResized, setIsManuallyResized] = useState(false);
+    const isManuallyResizedRef = useRef(false);
 
     useEffect(() => {
         const left = leftRef.current;
@@ -22,6 +24,10 @@ export function useSyncedResize<T extends HTMLElement = HTMLElement>() {
                     if (target.style.height && target.style.height !== other.style.height) {
                         syncing = true;
                         other.style.height = target.style.height;
+                        if (!isManuallyResizedRef.current) {
+                            isManuallyResizedRef.current = true;
+                            setIsManuallyResized(true);
+                        }
                         setTimeout(() => { syncing = false; }, 0);
                     }
                 }
@@ -32,9 +38,28 @@ export function useSyncedResize<T extends HTMLElement = HTMLElement>() {
         observer.observe(right, { attributes: true, attributeFilter: ['style'] });
 
         const handleResize = () => {
+            if (!left || !right) return;
+            
             if (window.innerWidth < 1024) {
                 left.style.height = '';
                 right.style.height = '';
+                if (isManuallyResizedRef.current) {
+                    isManuallyResizedRef.current = false;
+                    setIsManuallyResized(false);
+                }
+            } else if (isManuallyResizedRef.current) {
+                const parent = left.parentElement;
+                if (parent) {
+                    const parentRect = parent.getBoundingClientRect();
+                    const leftRect = left.getBoundingClientRect();
+                    
+                    if (parentRect.bottom > leftRect.bottom + 15) {
+                        left.style.height = '';
+                        right.style.height = '';
+                        isManuallyResizedRef.current = false;
+                        setIsManuallyResized(false);
+                    }
+                }
             }
         };
 
@@ -47,5 +72,5 @@ export function useSyncedResize<T extends HTMLElement = HTMLElement>() {
         };
     }, []);
 
-    return { leftRef, rightRef };
+    return { leftRef, rightRef, isManuallyResized };
 }

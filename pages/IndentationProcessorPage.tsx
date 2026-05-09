@@ -5,6 +5,7 @@ import { CopyIcon, DownloadIcon, UploadIcon, LoadingSpinner, BlockRemoveIcon } f
 import { Tooltip } from '../components/Tooltip';
 import { ExpandableDescription } from '../components/ExpandableDescription';
 import { useSyncedResize } from '../hooks/useSyncedResize';
+import { CodeEditor } from '../components/CodeEditor';
 
 type Mode = 'remove' | 'maintain' | 'addText';
 type MatchMode = 'contains' | 'exact';
@@ -43,14 +44,18 @@ const BlockRemoverPage: React.FC = () => {
     const keywordsFileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     
-    const { leftRef, rightRef } = useSyncedResize();
+    const { leftRef, rightRef, isManuallyResized } = useSyncedResize();
 
     const [indentationFilterMode, setIndentationFilterMode] = useState<IndentationFilterMode>(() => getInitialState('blockRemover_indentationFilterMode', 'none'));
     const [indentationFilterValue, setIndentationFilterValue] = useState<string>(() => getInitialState('blockRemover_indentationFilterValue', '4'));
     
     const [textToAdd, setTextToAdd] = useState<string>(() => getInitialState('blockRemover_textToAdd', ''));
     const [addPosition, setAddPosition] = useState<'start' | 'end'>(() => getInitialState('blockRemover_addPosition', 'start'));
+    const [addPositionOffset, setAddPositionOffset] = useState<number>(() => getInitialState('blockRemover_addPositionOffset', 0));
     const [invertAddTextCondition, setInvertAddTextCondition] = useState<boolean>(() => getInitialState('blockRemover_invertAddTextCondition', false));
+
+    const [autoExtendConfig, setAutoExtendConfig] = useState<boolean>(() => getInitialState('blockRemover_autoExtendConfig', false));
+    const [autoExtendData, setAutoExtendData] = useState<boolean>(() => getInitialState('blockRemover_autoExtendData', false));
 
     // --- State Persistence Effects ---
     useEffect(() => { safeSetLocalStorage('blockRemover_inputText', inputText); }, [inputText]);
@@ -65,7 +70,18 @@ const BlockRemoverPage: React.FC = () => {
     useEffect(() => { safeSetLocalStorage('blockRemover_indentationFilterValue', indentationFilterValue); }, [indentationFilterValue]);
     useEffect(() => { safeSetLocalStorage('blockRemover_textToAdd', textToAdd); }, [textToAdd]);
     useEffect(() => { safeSetLocalStorage('blockRemover_addPosition', addPosition); }, [addPosition]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_addPositionOffset', addPositionOffset); }, [addPositionOffset]);
     useEffect(() => { safeSetLocalStorage('blockRemover_invertAddTextCondition', invertAddTextCondition); }, [invertAddTextCondition]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_autoExtendConfig', autoExtendConfig); }, [autoExtendConfig]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_autoExtendData', autoExtendData); }, [autoExtendData]);
+
+    const getWrapperStyle = (baseHeightOrAutoExtend: string | boolean, autoExtendParam?: boolean): React.CSSProperties => {
+        const autoExtend = typeof baseHeightOrAutoExtend === 'boolean' ? baseHeightOrAutoExtend : (autoExtendParam || false);
+        const baseHeight = typeof baseHeightOrAutoExtend === 'string' ? baseHeightOrAutoExtend : '120px';
+        if (autoExtend) return { minHeight: baseHeight, flex: '1 1 auto', position: 'relative' };
+        if (isManuallyResized) return { minHeight: baseHeight, flex: 'none', resize: 'vertical', overflow: 'hidden', position: 'relative' };
+        return { minHeight: baseHeight, flex: '1 1 0%', resize: 'vertical', overflow: 'hidden', position: 'relative' };
+    };
 
 
 
@@ -115,9 +131,10 @@ const BlockRemoverPage: React.FC = () => {
             indentationFilterValue: parseInt(indentationFilterValue, 10),
             textToAdd,
             addPosition,
+            addPositionOffset,
             invertAddTextCondition,
         });
-    }, [inputText, keywordsText, blockStartIdentifier, includeIdentifierString, replaceWithText, mode, matchMode, indentationFilterMode, indentationFilterValue, textToAdd, addPosition, invertAddTextCondition]);
+    }, [inputText, keywordsText, blockStartIdentifier, includeIdentifierString, replaceWithText, mode, matchMode, indentationFilterMode, indentationFilterValue, textToAdd, addPosition, addPositionOffset, invertAddTextCondition]);
 
     const handleCopy = useCallback(() => {
         if (!outputText) return;
@@ -179,18 +196,33 @@ const BlockRemoverPage: React.FC = () => {
         <div className="w-full bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-6 border border-gray-700 flex flex-col flex-grow min-h-0">
             <div className="flex-shrink-0 mb-6 p-3 sm:p-4 border border-gray-700 rounded-lg bg-gray-800">
                 <div className="flex items-center space-x-2 mb-3">
-                    <h2 className="text-xl font-bold text-white">Block / Indentation Processor</h2>
-                    <Tooltip text="Process data based on its structural indentation or semantic elements." />
+                    <h2 className="text-xl font-bold text-white">Indentation Processor</h2>
+                    <Tooltip text="Process data based strictly on its structural indentation, without parsing brackets. A 'block' is identified by a start line, and EVERYTHING under it with greater indentation is treated as ONE block UNTIL the next line with an equal or smaller indentation level." />
+                    
+                    <div className="ml-auto flex items-center gap-4">
+                        <label className="flex items-center space-x-2 text-sm text-gray-300 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                checked={autoExtendConfig} 
+                                onChange={(e) => setAutoExtendConfig(e.target.checked)} 
+                                className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <span>Auto-Extend Config Boxes</span>
+                        </label>
+                    </div>
                 </div>
                 
                 <ExpandableDescription title="Remove, keep, or alter entire blocks of data based on what they contain.">
                         <p>
-                            Use <strong>Block Mode</strong> to handle structural chunks of related data, or <strong>Indentation Filter</strong> to process lines purely based on indentation level.
+                            Use <strong>Block Mode</strong> to handle structural chunks of related data based on indentation, or <strong>Indentation Filter</strong> to process lines purely based on indentation level.
                         </p>
-                        <ul className="list-disc pl-5 space-y-1">
-                            <li><strong>Block Start Identifier:</strong> Define what starts a block (e.g. <code>  - Id: </code>). Any lines underneath with *greater* indentation will be considered part of the block.</li>
+                        <p className="mt-2 text-indigo-300 font-medium">
+                            <span className="font-bold underline">Important:</span> The Indentation Processor strictly acknowledges indentation, not brackets or syntax parsing. Some databases do not use open/close brackets. If the block start is at an indentation level (e.g., 1), then everything with greater indentation (e.g., 2, 3, 4) will be included as ONE block, UNTIL the next line with an equal or smaller indentation level.
+                        </p>
+                        <ul className="list-disc pl-5 mt-2 space-y-1">
+                            <li><strong>Block Start Identifier:</strong> Define what starts a block (e.g. <code>  - Id: </code>). A block contains this start line and all subsequent lines with greater indentation.</li>
                             <li><strong>Match Mode:</strong> Decide whether to keep or remove blocks based on whether they contain your Keywords.</li>
-                            <li><strong>Indentation Filter Mode:</strong> (Alternative) Ignore blocks and just globally remove, maintain, or add text to all lines that match a specific number of spaces.</li>
+                            <li><strong>Indentation Filter Mode:</strong> (Alternative) Ignore blocks and just globally remove or keep lines that match a specific number of spaces.</li>
                         </ul>
                         <p className="pt-2 text-gray-300"><strong>Example:</strong> Remove all monster blocks if the block contains the keyword <code>Type: "Boss"</code>. Set the Block Start Identifier to something like <code>  - </code> or <code>  Monster:</code>.</p>
                 </ExpandableDescription>
@@ -228,12 +260,14 @@ const BlockRemoverPage: React.FC = () => {
                                 />
                             </div>
                              <p className="mt-1 text-sm font-semibold text-indigo-400">Indentation = {calculatedIndentation}</p>
-                            <div role="radiogroup" aria-labelledby="mode-label" className="flex flex-col space-y-2 mt-4">
+                            <div role="radiogroup" aria-labelledby="mode-label" className="flex flex-row flex-wrap items-center space-x-4 mt-4">
                                <div className="flex items-center space-x-2">
-                                    <span id="mode-label" className="text-sm font-medium text-gray-300">Block Mode:</span>
-                                    <Tooltip text="Choose the action to perform on blocks that match the keyword criteria." />
+                                    <span id="mode-label" className="text-sm font-medium text-gray-300">Operation Mode:</span>
+                                    <Tooltip text="- Remove: completely deletes matching blocks (start line + all subsequent lines with greater indentation).
+- Maintain: keeps ONLY matching blocks in the file, deleting all other unmatched blocks.
+- Add Text: appends custom text to matching blocks, automatically adjusting to the block's indentation." />
                                </div>
-                               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                               <div className="flex flex-wrap items-center gap-x-4">
                                     <label title="Remove any block that contains a keyword." className="flex items-center space-x-2 text-gray-300 cursor-pointer">
                                         <input type="radio" name="mode" value="remove" checked={mode === 'remove'} onChange={() => setMode('remove')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
                                         <span>Remove</span>
@@ -277,14 +311,14 @@ const BlockRemoverPage: React.FC = () => {
                                     </label>
                                 </div>
                             </div>
-                            <textarea
-                                id="keywords"
-                                value={keywordsText}
-                                onChange={(e) => setKeywordsText(e.target.value)}
-                                placeholder="e.g.,&#10;Type: ShadowGear"
-                                className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[160px] resize-y"
-                                spellCheck="false"
-                            />
+                            <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
+                                <CodeEditor 
+                                    value={keywordsText} 
+                                    onChange={(val) => setKeywordsText(val)} 
+                                    placeholder={"e.g.,\nType: ShadowGear"}
+                                    autoExtend={autoExtendConfig}
+                                />
+                            </div>
                         </div>
                         <div>
                             {mode === 'addText' ? (
@@ -292,58 +326,99 @@ const BlockRemoverPage: React.FC = () => {
                                     <div>
                                         <div className="flex items-center space-x-2 mb-1">
                                             <label htmlFor="text-to-add" className="block text-sm font-medium text-gray-300">Text to Add</label>
-                                            <Tooltip text="Enter the text (can be multiple lines) to add to matching blocks. It will be automatically indented relative to the block." />
+                                            <Tooltip text="Enter the exact text you want to insert.
+The tool automatically adds the block's base indentation to your text. Any additional indentation must be typed manually.
+Example:   New_Key: true" />
                                         </div>
-                                        <textarea
-                                            id="text-to-add"
-                                            value={textToAdd}
-                                            onChange={(e) => setTextToAdd(e.target.value)}
-                                            className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px] resize-y"
-                                            placeholder="e.g.,&#10;  Scripts:&#10;    - SomeScript"
-                                        />
+                                        <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
+                                            <CodeEditor
+                                                value={textToAdd}
+                                                onChange={(val) => setTextToAdd(val)}
+                                                placeholder={"e.g.,\n  Scripts:\n    - SomeScript"}
+                                                autoExtend={autoExtendConfig}
+                                            />
+                                        </div>
                                     </div>
-                                    <div role="radiogroup" aria-labelledby="position-label" className="flex items-center space-x-4">
+                                    <div role="radiogroup" aria-labelledby="position-label" className="flex flex-wrap items-center gap-6">
                                         <div className="flex items-center space-x-2">
-                                          <span id="position-label" className="text-sm font-medium text-gray-300">Position:</span>
-                                          <Tooltip text="Choose where to insert the new text within the block." />
+                                          <span id="position-label" className="text-sm font-medium text-gray-300">Add Position:</span>
+                                          <Tooltip text="Choose where to insert the new text within the block. You can also specify a line offset." />
                                         </div>
-                                        <label title="Add the text immediately after the block's starting line." className="flex items-center space-x-2 text-gray-300 cursor-pointer">
-                                            <input type="radio" name="addPosition" value="start" checked={addPosition === 'start'} onChange={() => setAddPosition('start')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
-                                            <span>Start</span>
-                                        </label>
-                                        <label title="Add the text at the very end of the block." className="flex items-center space-x-2 text-gray-300 cursor-pointer">
-                                            <input type="radio" name="addPosition" value="end" checked={addPosition === 'end'} onChange={() => setAddPosition('end')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
-                                            <span>End</span>
-                                        </label>
+                                        
+                                        <div className="flex items-center space-x-2">
+                                            <label title="Add the text immediately after the block's starting line." className="flex items-center space-x-2 text-gray-300 cursor-pointer">
+                                                <input type="radio" name="addPosition" value="start" checked={addPosition === 'start'} onChange={() => setAddPosition('start')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm">Start of block</span>
+                                            </label>
+                                            {addPosition === 'start' && (
+                                                <div className="flex items-center space-x-2 ml-1">
+                                                    <input 
+                                                        id="add-position-offset-start"
+                                                        type="number" 
+                                                        min="0"
+                                                        value={addPositionOffset} 
+                                                        onChange={(e) => setAddPositionOffset(Math.max(0, parseInt(e.target.value) || 0))}
+                                                        className="w-16 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-1 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                                    />
+                                                    <span className="text-sm text-gray-400">lines below</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center space-x-2">
+                                            <label title="Add the text at the very end of the block." className="flex items-center space-x-2 text-gray-300 cursor-pointer">
+                                                <input type="radio" name="addPosition" value="end" checked={addPosition === 'end'} onChange={() => setAddPosition('end')} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm">End of block</span>
+                                            </label>
+                                            {addPosition === 'end' && (
+                                                <div className="flex items-center space-x-2 ml-1">
+                                                    <input 
+                                                        id="add-position-offset-end"
+                                                        type="number" 
+                                                        min="0"
+                                                        value={addPositionOffset} 
+                                                        onChange={(e) => setAddPositionOffset(Math.max(0, parseInt(e.target.value) || 0))}
+                                                        className="w-16 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-1 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                                    />
+                                                    <span className="text-sm text-gray-400">lines above</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="flex items-center space-x-2 pt-1">
-                                        <Tooltip text="Invert the logic. If checked, text will be added ONLY to blocks that DO NOT contain any of the specified keywords." />
-                                        <input
-                                            type="checkbox"
-                                            id="invert-add-text-condition"
-                                            checked={invertAddTextCondition}
-                                            onChange={(e) => setInvertAddTextCondition(e.target.checked)}
-                                            className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                        />
-                                        <label htmlFor="invert-add-text-condition" className="text-sm text-gray-300 cursor-pointer">
-                                            Apply to blocks that DO NOT contain keywords
-                                        </label>
+                                    <div className="flex justify-between items-center bg-[#1e293b] p-3 rounded-md border border-[#334155] mt-2">
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="checkbox"
+                                                id="invert-add-text-condition"
+                                                checked={invertAddTextCondition}
+                                                onChange={(e) => setInvertAddTextCondition(e.target.checked)}
+                                                className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                            />
+                                            <label htmlFor="invert-add-text-condition" className="text-sm text-gray-300 cursor-pointer">
+                                                Invert match condition
+                                            </label>
+                                            <Tooltip text="If checked, text will be added ONLY to blocks that DO NOT match." />
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
                                 <div>
                                     <div className="flex items-center space-x-2 mb-1">
                                         <label htmlFor="replace-with" className="block text-sm font-medium text-gray-300">Replace With (Optional)</label>
-                                        <Tooltip text="If text is provided, the entire block will be replaced with this text (preserving the block's initial indentation). If left empty, the block will be removed entirely." />
+                                        <Tooltip text="Leave empty to completely remove the block.
+If text is provided, the matched block will be replaced with this text. The text will automatically inherit the block's base indentation.
+Example: 
+Insert line one
+  Insert line two" />
                                     </div>
-                                    <textarea
-                                        id="replace-with"
-                                        value={replaceWithText}
-                                        onChange={(e) => setReplaceWithText(e.target.value)}
-                                        placeholder="Leave empty to remove block..."
-                                        className={`w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[160px] resize-y`}
-                                        spellCheck="false"
-                                    />
+                                    <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
+                                        <CodeEditor 
+                                            value={replaceWithText}
+                                            onChange={(val) => setReplaceWithText(val)}
+                                            placeholder={"e.g.\nInsert line one\n  Insert line two"}
+                                            autoExtend={autoExtendConfig}
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -380,23 +455,30 @@ const BlockRemoverPage: React.FC = () => {
 
             </div>
 
-            <div className="flex-1 min-h-[400px] lg:min-h-[300px] flex flex-col lg:flex-row gap-6 pb-4">
-                <div className="flex-1 flex flex-col min-w-[200px]">
+            <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-6 pb-4">
+                <div className="flex-1 flex flex-col min-h-0 min-w-[200px]">
                     <div className="flex-shrink-0 flex items-center justify-between mb-2">
                         <label htmlFor="input-text" className="block text-sm font-medium text-gray-300">Input Data</label>
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-gray-700 hover:bg-gray-600 transition-all">
-                            <UploadIcon className="h-4 w-4 mr-2" /> Upload File
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center space-x-2 text-sm text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
+                                <input 
+                                    type="checkbox" 
+                                    checked={autoExtendData} 
+                                    onChange={(e) => setAutoExtendData(e.target.checked)} 
+                                    className="h-3.5 w-3.5 rounded bg-[#101828] border-gray-600 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                                />
+                                <span>Auto-Extend Views</span>
+                            </label>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-[#1e293b] hover:bg-[#334155] transition-all">
+                                <UploadIcon className="h-4 w-4 mr-2" /> Upload File
+                            </button>
+                        </div>
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".txt,.yaml,.yml,text/plain" />
                     </div>
-                    <textarea 
+                    <div 
                         ref={leftRef}
-                        id="input-text" 
-                        value={inputText} 
-                        onChange={(e) => setInputText(e.target.value)} 
-                        placeholder="Drag & drop a file, or paste your database content here..." 
-                        className={`flex-grow w-full bg-gray-900 text-gray-300 border rounded-md shadow-sm p-4 font-mono text-sm focus:ring-2 focus:ring-indigo-500 transition-all resize-y ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`} 
-                        spellCheck="false"
+                        className={`flex-1 flex flex-col min-h-[120px] border rounded-md shadow-sm transition-all ${isDragging ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-gray-700'} bg-[#101828]`}
+                        style={getWrapperStyle(autoExtendData)}
                         onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                         onDragOver={(e) => e.preventDefault()}
                         onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -405,11 +487,25 @@ const BlockRemoverPage: React.FC = () => {
                             setIsDragging(false);
                             if (e.dataTransfer.files?.[0]) readFile(e.dataTransfer.files[0]);
                         }}
-                    />
+                    >
+                        <CodeEditor 
+                            value={inputText} 
+                            onChange={(val) => setInputText(val)} 
+                            placeholder="Drag & drop a file, or paste your database content here..." 
+                            autoExtend={autoExtendData}
+                        />
+                    </div>
                 </div>
-                <div className="flex-1 flex flex-col min-w-[200px]">
+                <div className="flex-1 flex flex-col min-h-0 min-w-[200px]">
                      <label htmlFor="output-text" className="flex-shrink-0 block text-sm font-medium text-gray-300 mb-2">Processed Output</label>
-                    <textarea ref={rightRef} id="output-text" value={outputText} readOnly placeholder="Result will appear here after processing..." className="flex-grow w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-4 font-mono text-sm resize-y" spellCheck="false" />
+                    <div ref={rightRef} className="flex-1 flex flex-col min-h-[120px] border bg-[#101828] border-gray-700 rounded-md shadow-sm" style={getWrapperStyle(autoExtendData)}>
+                        <CodeEditor 
+                            value={outputText} 
+                            editable={false}
+                            placeholder="Result will appear here after processing..." 
+                            autoExtend={autoExtendData}
+                        />
+                    </div>
                 </div>
             </div>
             

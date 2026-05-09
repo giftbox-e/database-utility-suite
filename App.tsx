@@ -3,7 +3,7 @@ import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom'
 import TransformerPage from './pages/TransformerPage';
 import ComparatorPage from './pages/ComparatorPage';
 import LineRemoverPage from './pages/LineRemoverPage';
-import BlockRemoverPage from './pages/BlockRemoverPage';
+import IndentationProcessorPage from './pages/IndentationProcessorPage';
 import IDBlockTransformerPage from './pages/IDBlockTransformerPage';
 import { Modal } from './components/Modal';
 import { Menu, X } from 'lucide-react';
@@ -40,7 +40,7 @@ const App: React.FC = () => {
         if (path.startsWith('/transformer')) return 'transformer_';
         if (path.startsWith('/comparator')) return 'comparator_';
         if (path.startsWith('/line-processor')) return 'lineRemover_';
-        if (path.startsWith('/block-processor')) return 'blockRemover_';
+        if (path.startsWith('/indentation-processor')) return 'blockRemover_';
         if (path.startsWith('/id-block-transformer')) return 'idblock_';
         return '';
     };
@@ -141,11 +141,11 @@ const App: React.FC = () => {
                             <NavLink to="/line-processor" className={({ isActive }) => `flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 whitespace-nowrap text-center ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
                                 Line Processor
                             </NavLink>
-                            <NavLink to="/block-processor" className={({ isActive }) => `flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 whitespace-nowrap text-center ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
-                                Block Processor
+                            <NavLink to="/indentation-processor" className={({ isActive }) => `flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 whitespace-nowrap text-center ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
+                                Indentation Processor
                             </NavLink>
                             <NavLink to="/id-block-transformer" className={({ isActive }) => `flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 whitespace-nowrap text-center ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
-                                ID Block Transformer
+                                {`{ID}`} Block Processor
                             </NavLink>
                             <NavLink to="/comparator" className={({ isActive }) => `flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 whitespace-nowrap text-center ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
                                 Comparator
@@ -178,11 +178,11 @@ const App: React.FC = () => {
                             <NavLink to="/line-processor" className={({ isActive }) => `block px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
                                 Line Processor
                             </NavLink>
-                            <NavLink to="/block-processor" className={({ isActive }) => `block px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
-                                Block Processor
+                            <NavLink to="/indentation-processor" className={({ isActive }) => `block px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
+                                Indentation Processor
                             </NavLink>
                             <NavLink to="/id-block-transformer" className={({ isActive }) => `block px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
-                                Block ID Transformer
+                                {`{ID}`} Block Processor
                             </NavLink>
                             <NavLink to="/comparator" className={({ isActive }) => `block px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive ? activeNavItemClasses : inactiveNavItemClasses}`}>
                                 Comparator
@@ -206,14 +206,14 @@ const App: React.FC = () => {
                 )}
             </header>
             
-            <main className="flex-grow flex flex-col w-full px-2 sm:px-4 md:px-6 lg:px-8 mb-6">
-                <div className="w-full flex-grow flex flex-col pt-4 sm:pt-6">
+            <main className="flex-grow flex flex-col w-full px-2 sm:px-4 md:px-6 lg:px-8 mb-6 min-h-0">
+                <div className="w-full flex-grow flex flex-col pt-4 sm:pt-6 min-h-0">
                     <Routes>
                         <Route path="/" element={<Navigate to="/transformer" replace />} />
                         <Route path="/transformer" element={<TransformerPage />} />
                         <Route path="/comparator" element={<ComparatorPage />} />
                         <Route path="/line-processor" element={<LineRemoverPage />} />
-                        <Route path="/block-processor" element={<BlockRemoverPage />} />
+                        <Route path="/indentation-processor" element={<IndentationProcessorPage />} />
                         <Route path="/id-block-transformer" element={<IDBlockTransformerPage />} />
                     </Routes>
                     <footer className="w-full pb-3 pt-6 text-center text-xs text-gray-500 flex-shrink-0">
@@ -271,8 +271,8 @@ const App: React.FC = () => {
                     <ul className="list-disc pl-5 space-y-1">
                         <li><strong>Transformer:</strong> Apply basic mathematical operations to specific keys.</li>
                         <li><strong>Line Processor:</strong> Remove, retain, or comment out specific lines based on keywords.</li>
-                        <li><strong>Block Processor:</strong> Manage entire blocks of data depending on their content.</li>
-                        <li><strong>Block ID Transformer:</strong> Pinpoint blocks by ID and transform their internal values conditionally.</li>
+                        <li><strong>Indentation Processor:</strong> Manage entire blocks of data depending on their content using indentation based identification.</li>
+                        <li><strong>{`{`}ID{`}`} Block Processor:</strong> Pinpoint blocks by ID and transform their internal values conditionally, or remove/maintain/add text to matching ID blocks.</li>
                         <li><strong>Comparator:</strong> Compare two versions of a database file to easily spot the differences.</li>
                     </ul>
                     <p className="text-gray-400">
