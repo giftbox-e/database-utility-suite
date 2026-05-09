@@ -17,25 +17,38 @@ export default defineConfig(({ mode }) => {
         VitePWA({
           registerType: 'autoUpdate',
           includeAssets: ['icon-192.png', 'icon-512.png'],
+          devOptions: {
+            enabled: true,
+          },
           manifest: {
             "short_name": "DB Utility",
             "name": "Database Utility Suite",
+            "id": "/",
+            "scope": "/",
             "icons": [
               {
                 "src": "icon-192.png",
                 "sizes": "192x192",
-                "type": "image/png"
-              },
-              {
-                "src": "icon-512.png",
-                "sizes": "512x512",
-                "type": "image/png"
+                "type": "image/png",
+                "purpose": "any"
               },
               {
                 "src": "icon-512.png",
                 "sizes": "512x512",
                 "type": "image/png",
-                "purpose": "any maskable"
+                "purpose": "any"
+              },
+              {
+                "src": "icon-192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "maskable"
+              },
+              {
+                "src": "icon-512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "maskable"
               }
             ],
             "start_url": "/",

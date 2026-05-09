@@ -282,6 +282,31 @@ const BlockRemoverPage: React.FC = () => {
                                     </label>
                                </div>
                             </div>
+                            <div className="flex items-center gap-2 mt-4 flex-wrap">
+                                <label htmlFor="indent-filter-mode" className="text-sm font-medium text-gray-300 whitespace-nowrap">Indentation Filter:</label>
+                                <Tooltip text="This mode overrides the Block Processor. It processes the file line by line, removing or keeping lines based only on their indentation level." />
+                                <select 
+                                    id="indent-filter-mode"
+                                    value={indentationFilterMode}
+                                    onChange={(e) => setIndentationFilterMode(e.target.value as IndentationFilterMode)}
+                                    className="bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                >
+                                    <option value="none">None (Use Block Mode)</option>
+                                    <option value="gt">Remove: Indent &gt; X</option>
+                                    <option value="lt">Remove: Indent &lt; X</option>
+                                    <option value="eq_remove">Remove: Indent = X</option>
+                                    <option value="eq_maintain">Maintain: Indent = X</option>
+                                </select>
+                                <input
+                                    type="number"
+                                    value={indentationFilterValue}
+                                    onChange={(e) => setIndentationFilterValue(e.target.value)}
+                                    min="0"
+                                    aria-label="Indentation value"
+                                    className="w-20 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:opacity-50"
+                                    disabled={!isIndentModeActive}
+                                />
+                            </div>
                         </div>
                         <div>
                             <div className="flex items-center justify-between mb-1">
@@ -425,33 +450,7 @@ Insert line one
                     </div>
                 </fieldset>
 
-                <div className="mt-6 pt-4 border-t border-gray-700 flex justify-center">
-                    <div className="flex items-center gap-2">
-                        <label htmlFor="indent-filter-mode" className="text-sm font-medium text-gray-300 whitespace-nowrap">Indentation Filter:</label>
-                        <Tooltip text="This mode overrides the Block Processor. It processes the file line by line, removing or keeping lines based only on their indentation level." />
-                        <select 
-                            id="indent-filter-mode"
-                            value={indentationFilterMode}
-                            onChange={(e) => setIndentationFilterMode(e.target.value as IndentationFilterMode)}
-                            className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="none">None (Use Block Mode)</option>
-                            <option value="gt">Remove: Indent &gt; X</option>
-                            <option value="lt">Remove: Indent &lt; X</option>
-                            <option value="eq_remove">Remove: Indent = X</option>
-                            <option value="eq_maintain">Maintain: Indent = X</option>
-                        </select>
-                        <input
-                            type="number"
-                            value={indentationFilterValue}
-                            onChange={(e) => setIndentationFilterValue(e.target.value)}
-                            min="0"
-                            aria-label="Indentation value"
-                            className="w-24 bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:opacity-50"
-                            disabled={!isIndentModeActive}
-                        />
-                    </div>
-                </div>
+
 
             </div>
 

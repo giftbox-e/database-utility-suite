@@ -117,7 +117,7 @@ const EditorPanel: React.FC<{
                 onDrop={dropHandler}
             >
                 <div className="editor-content-wrapper flex-1 relative flex flex-col min-w-0 bg-[#101828]" ref={editorWrapperRef}>
-                    <div ref={highlightsRef} className="highlights absolute inset-0 overflow-hidden pointer-events-none whitespace-pre leading-[22px] tracking-normal font-mono z-10 w-full min-w-max text-transparent" style={{ paddingTop: "4px" }}>
+                    <div ref={highlightsRef} className="highlights absolute inset-0 overflow-hidden pointer-events-none whitespace-pre leading-[22px] tracking-normal font-mono z-30 w-full min-w-max text-transparent" style={{ paddingTop: "4px" }}>
                         {diffLines.map((item, index) => (
                             <div key={index} className={`h-[22px] px-1 ${getLineClasses(item.type)}`}>
                                 {item.line || '\u00A0'}
@@ -135,13 +135,13 @@ const EditorPanel: React.FC<{
                             yaml(),
                             EditorView.theme({
                                 "&": { backgroundColor: "transparent !important", color: "#e2e8f0 !important", display: "flex", flexDirection: "column", height: "100%" },
-                                ".cm-content": { paddingTop: "4px", paddingBottom: "4px", color: "#e2e8f0 !important", minHeight: "100%" },
+                                ".cm-content": { paddingTop: "4px", paddingBottom: "4px", color: "#e2e8f0 !important", minHeight: "100%", backgroundColor: "transparent !important" },
                                 ".cm-scroller": { overflow: "auto", fontFamily: "inherit", fontSize: "14px", lineHeight: "22px", backgroundColor: "transparent !important", height: "100%" },
-                                ".cm-line": { caretColor: "#528bff", padding: "0 4px" },
+                                ".cm-line": { caretColor: "#528bff", padding: "0 4px", backgroundColor: "transparent !important" },
                                 ".cm-cursor": { borderLeftColor: "#528bff", borderWidth: "2px" },
                                 ".cm-selectionBackground, .cm-content ::selection": { backgroundColor: "#3e4451 !important" },
-                                ".cm-gutters": { backgroundColor: "#101828 !important", color: "#64748b !important", borderRight: "1px solid #374151 !important" },
-                                ".cm-activeLine": { backgroundColor: "rgba(255, 255, 255, 0.05) !important" },
+                                ".cm-gutters": { backgroundColor: "#101828 !important", color: "#64748b !important", borderRight: "1px solid #374151 !important", zIndex: "40" },
+                                ".cm-activeLine": { backgroundColor: "transparent !important" },
                                 ".cm-activeLineGutter": { backgroundColor: "rgba(255, 255, 255, 0.05) !important" },
                                 "&.cm-editor.cm-focused": { outline: "none" }
                             }, { dark: true }),
@@ -163,7 +163,7 @@ const EditorPanel: React.FC<{
                                 }
                             }),
                             EditorView.updateListener.of((update) => {
-                                if (update.selectionSet) {
+                                if (update.selectionSet && !update.focusChanged && !update.docChanged) {
                                     const range = update.state.selection.main;
                                     if (range.empty) {
                                         onSelectionChange(null);
@@ -342,11 +342,18 @@ const ComparatorPage: React.FC = () => {
 
                 if (!tRange.isEmpty) return false;
 
-                if (targetSelection && (tRange.startLineNumber - 1 > targetSelection.end + 1 || tRange.startLineNumber - 1 < targetSelection.start)) {
-                    return false;
+                const insertionPoint = tRange.startLineNumber - 1;
+                if (sourceSelection) {
+                    const srcStart = sRange.startLineNumber - 1;
+                    const srcEnd = sRange.endLineNumberExclusive - 2;
+                    if (srcEnd < sourceSelection.start || srcStart > sourceSelection.end) {
+                        return false;
+                    }
                 }
-                if (sourceSelection && (sRange.startLineNumber - 1 > sourceSelection.end || sRange.endLineNumberExclusive - 2 < sourceSelection.start)) {
-                    return false;
+                if (targetSelection) {
+                    if (insertionPoint < targetSelection.start || insertionPoint > targetSelection.end + 1) {
+                        return false;
+                    }
                 }
                 return true;
             });
