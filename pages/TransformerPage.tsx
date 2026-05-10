@@ -6,6 +6,8 @@ import { Tooltip } from '../components/Tooltip';
 import { ExpandableDescription } from '../components/ExpandableDescription';
 import { useSyncedResize } from '../hooks/useSyncedResize';
 import { CodeEditor } from '../components/CodeEditor';
+import { ResizablePanel } from '../components/ResizablePanel';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 type Condition = 'none' | '<' | '=' | '>';
 type Operation = 'fixed' | 'increase' | 'decrease' | 'multiply' | 'divide';
@@ -48,6 +50,8 @@ const TransformerPage: React.FC = () => {
     const [operationValue, setOperationValue] = useState<string>(() => getInitialState('transformer_operationValue', ''));
     const [roundDecimals, setRoundDecimals] = useState<boolean>(() => getInitialState('transformer_roundDecimals', false));
     const [autoExtendData, setAutoExtendData] = useState<boolean>(() => getInitialState('transformer_autoExtendData', false));
+    const [isOutputEditable, setIsOutputEditable] = useState<boolean>(() => getInitialState('transformer_isOutputEditable', false));
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
     // --- State Persistence Effects ---
     useEffect(() => { safeSetLocalStorage('transformer_inputText', inputText); }, [inputText]);
@@ -62,14 +66,8 @@ const TransformerPage: React.FC = () => {
     useEffect(() => { safeSetLocalStorage('transformer_operationValue', operationValue); }, [operationValue]);
     useEffect(() => { safeSetLocalStorage('transformer_roundDecimals', roundDecimals); }, [roundDecimals]);
     useEffect(() => { safeSetLocalStorage('transformer_autoExtendData', autoExtendData); }, [autoExtendData]);
+    useEffect(() => { safeSetLocalStorage('transformer_isOutputEditable', isOutputEditable); }, [isOutputEditable]);
 
-    const getWrapperStyle = (baseHeightOrAutoExtend: string | boolean, autoExtendParam?: boolean): React.CSSProperties => {
-        const autoExtend = typeof baseHeightOrAutoExtend === 'boolean' ? baseHeightOrAutoExtend : (autoExtendParam || false);
-        const baseHeight = typeof baseHeightOrAutoExtend === 'string' ? baseHeightOrAutoExtend : '120px';
-        if (autoExtend) return { minHeight: baseHeight, flex: '1 1 auto', position: 'relative' };
-        if (isManuallyResized) return { minHeight: baseHeight, flex: 'none', resize: 'vertical', overflow: 'hidden', position: 'relative' };
-        return { minHeight: baseHeight, flex: '1 1 0%', resize: 'vertical', overflow: 'hidden', position: 'relative' };
-    };
 
 
     const calculatedIndentation = useMemo(() => {
@@ -85,7 +83,7 @@ const TransformerPage: React.FC = () => {
         }
     }, [sourceKey, applyToBlock]);
 
-    const handleProcess = useCallback(() => {
+    const executeProcess = useCallback(() => {
         setIsProcessing(true);
         setOutputText('');
 
@@ -126,6 +124,14 @@ const TransformerPage: React.FC = () => {
         });
 
     }, [inputText, applyToBlock, sourceKey, includeString, condition, conditionValue, targetKey, operation, operationValue, roundDecimals]);
+
+    const handleProcess = useCallback(() => {
+        if (outputText.trim() !== '') {
+            setIsConfirmModalOpen(true);
+        } else {
+            executeProcess();
+        }
+    }, [outputText, executeProcess]);
 
     const handleCopy = useCallback(() => {
         if (!outputText) return;
@@ -317,16 +323,19 @@ const TransformerPage: React.FC = () => {
                                 />
                                 <span>Auto-Extend Views</span>
                             </label>
+                            <Tooltip text="If enabled, the Input Data and Processed Output text boxes will automatically expand their height to fit the content." />
                             <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-[#1e293b] hover:bg-[#334155] transition-all">
                                 <UploadIcon className="h-4 w-4 mr-2" /> Upload File
                             </button>
                         </div>
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".txt,.yaml,.yml,text/plain" />
                     </div>
-                    <div 
-                        ref={leftRef}
-                        className={`flex-1 flex flex-col min-h-[120px] border rounded-md shadow-sm transition-all ${isDragging ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-gray-700'} bg-[#101828]`}
-                        style={getWrapperStyle(autoExtendData)}
+                    <ResizablePanel 
+                        ref={leftRef as React.Ref<HTMLDivElement>} 
+                        baseHeight="120px" 
+                        autoExtend={autoExtendData}
+                        isManuallyResized={isManuallyResized}
+                        className={`flex-1 min-h-[120px] border rounded-md shadow-sm transition-all ${isDragging ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-gray-700'} bg-[#101828]`}
                         onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                         onDragOver={(e) => e.preventDefault()}
                         onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -342,24 +351,38 @@ const TransformerPage: React.FC = () => {
                             placeholder="Drag & drop a file, or paste your database content here..." 
                             autoExtend={autoExtendData}
                         />
-                    </div>
+                    </ResizablePanel>
                 </div>
                 <div className="flex-1 flex flex-col min-h-0 min-w-[200px]">
-                     <label htmlFor="output-text" className="flex-shrink-0 block text-sm font-medium text-gray-300 mb-2">Processed Output</label>
-                    <div ref={rightRef} className="flex-1 flex flex-col min-h-[120px] border bg-[#101828] border-gray-700 rounded-md shadow-sm" style={getWrapperStyle(autoExtendData)}>
+                    <div className="flex-shrink-0 flex items-center justify-between mb-2">
+                        <label htmlFor="output-text" className="block text-sm font-medium text-gray-300">Processed Output</label>
+                        <div className="flex items-center space-x-2">
+                            <input 
+                                type="checkbox" 
+                                id="output-editable"
+                                checked={isOutputEditable} 
+                                onChange={(e) => setIsOutputEditable(e.target.checked)} 
+                                className="h-3.5 w-3.5 rounded bg-[#101828] border-gray-600 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <label htmlFor="output-editable" className="text-sm text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">Editable</label>
+                            <Tooltip text="If enabled, you can manually edit the processed output before copying or downloading it." />
+                        </div>
+                    </div>
+                    <ResizablePanel ref={rightRef as React.Ref<HTMLDivElement>} baseHeight="120px" autoExtend={autoExtendData} isManuallyResized={isManuallyResized} className="flex-1 min-h-[120px] border bg-[#101828] border-gray-700 rounded-md shadow-sm">
                         <CodeEditor 
                             value={outputText} 
-                            editable={false}
+                            onChange={(val) => setOutputText(val)}
+                            editable={isOutputEditable}
                             placeholder="Result will appear here after processing..." 
                             autoExtend={autoExtendData}
                         />
-                    </div>
+                    </ResizablePanel>
                 </div>
             </div>
             
             <div className="flex-shrink-0 mt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
                 <button onClick={handleProcess} disabled={isProcessButtonDisabled} className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 disabled:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                    {isProcessing ? <><LoadingSpinner/>Processing...</> : <><ProcessIcon/>Transform Data</>}
+                    {isProcessing ? <><LoadingSpinner/>Processing...</> : <><ProcessIcon/>Process Data</>}
                 </button>
                 <button onClick={handleCopy} disabled={!outputText} className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-200 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                      <CopyIcon />{copyStatus}
@@ -368,6 +391,14 @@ const TransformerPage: React.FC = () => {
                     <DownloadIcon />Download File
                 </button>
             </div>
+            
+            <ConfirmModal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setIsConfirmModalOpen(false)}
+                onConfirm={executeProcess}
+                title="Overwrite Output?"
+                message="The Processed Output box already contains text. Are you sure you want to process again? The current output will be completely replaced."
+            />
         </div>
     );
 };

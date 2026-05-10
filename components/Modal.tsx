@@ -12,7 +12,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm">
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-md flex flex-col border border-gray-700 max-h-full">
                 <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700 font-sans">
                     <h3 className="text-lg font-bold text-white">{title}</h3>

@@ -8,6 +8,7 @@ import { useSyncedResize } from '../hooks/useSyncedResize';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView } from '@codemirror/view';
+import { ResizablePanel } from '../components/ResizablePanel';
 
 type DiffLineType = 'common' | 'added' | 'removed';
 type DiffViewLine = { type: DiffLineType | 'empty'; line: string };
@@ -99,18 +100,12 @@ const EditorPanel: React.FC<{
             }
         };
 
-        const getWrapperStyle = (): React.CSSProperties => {
-            const baseHeight = '120px';
-            if (autoExtend) return { minHeight: baseHeight, flex: '1 1 auto', position: 'relative' };
-            if (isManuallyResized) return { minHeight: baseHeight, flex: 'none', resize: 'vertical', overflow: 'hidden', position: 'relative' };
-            return { minHeight: baseHeight, flex: '1 1 0%', resize: 'vertical', overflow: 'hidden', position: 'relative' };
-        };
-
         return (
-            <div
-                ref={containerRef}
+            <ResizablePanel
+                ref={containerRef as any}
+                autoExtend={autoExtend}
+                isManuallyResized={isManuallyResized}
                 className={`w-full border rounded-md shadow-sm font-mono text-sm flex ${isDragging ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-gray-700'} bg-transparent`}
-                style={getWrapperStyle()}
                 onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragOver={(e) => e.preventDefault()}
                 onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -188,7 +183,7 @@ const EditorPanel: React.FC<{
                         className={`z-20 w-full text-sm font-mono overflow-hidden flex flex-col ${autoExtend ? 'flex-grow min-h-0 relative' : 'absolute inset-0 h-full w-full'}`}
                     />
                 </div>
-            </div>
+            </ResizablePanel>
         );
     };
 

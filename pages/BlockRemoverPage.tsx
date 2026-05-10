@@ -5,6 +5,7 @@ import { CopyIcon, DownloadIcon, UploadIcon, LoadingSpinner, BlockRemoveIcon } f
 import { Tooltip } from '../components/Tooltip';
 import { ExpandableDescription } from '../components/ExpandableDescription';
 import { useSyncedResize } from '../hooks/useSyncedResize';
+import { ResizablePanel } from '../components/ResizablePanel';
 
 type Mode = 'remove' | 'maintain' | 'addText';
 type MatchMode = 'contains' | 'exact';
@@ -43,7 +44,7 @@ const BlockRemoverPage: React.FC = () => {
     const keywordsFileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     
-    const { leftRef, rightRef } = useSyncedResize();
+    const { leftRef, rightRef, isManuallyResized } = useSyncedResize();
 
     const [indentationFilterMode, setIndentationFilterMode] = useState<IndentationFilterMode>(() => getInitialState('blockRemover_indentationFilterMode', 'none'));
     const [indentationFilterValue, setIndentationFilterValue] = useState<string>(() => getInitialState('blockRemover_indentationFilterValue', '4'));
@@ -277,14 +278,16 @@ const BlockRemoverPage: React.FC = () => {
                                     </label>
                                 </div>
                             </div>
-                            <textarea
-                                id="keywords"
-                                value={keywordsText}
-                                onChange={(e) => setKeywordsText(e.target.value)}
-                                placeholder="e.g.,&#10;Type: ShadowGear"
-                                className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[160px] resize-y"
-                                spellCheck="false"
-                            />
+                            <ResizablePanel baseHeight="160px" className="border border-gray-600 rounded-md shadow-sm bg-gray-900 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+                                <textarea
+                                    id="keywords"
+                                    value={keywordsText}
+                                    onChange={(e) => setKeywordsText(e.target.value)}
+                                    placeholder="e.g.,&#10;Type: ShadowGear"
+                                    className="w-full h-full bg-transparent text-gray-300 p-2 font-mono text-sm resize-none outline-none"
+                                    spellCheck="false"
+                                />
+                            </ResizablePanel>
                         </div>
                         <div>
                             {mode === 'addText' ? (
@@ -294,13 +297,15 @@ const BlockRemoverPage: React.FC = () => {
                                             <label htmlFor="text-to-add" className="block text-sm font-medium text-gray-300">Text to Add</label>
                                             <Tooltip text="Enter the text (can be multiple lines) to add to matching blocks. It will be automatically indented relative to the block." />
                                         </div>
-                                        <textarea
-                                            id="text-to-add"
-                                            value={textToAdd}
-                                            onChange={(e) => setTextToAdd(e.target.value)}
-                                            className="w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px] resize-y"
-                                            placeholder="e.g.,&#10;  Scripts:&#10;    - SomeScript"
-                                        />
+                                        <ResizablePanel baseHeight="100px" className="border border-gray-600 rounded-md shadow-sm bg-gray-900 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+                                            <textarea
+                                                id="text-to-add"
+                                                value={textToAdd}
+                                                onChange={(e) => setTextToAdd(e.target.value)}
+                                                className="w-full h-full bg-transparent text-gray-300 p-2 font-mono text-sm resize-none outline-none"
+                                                placeholder="e.g.,&#10;  Scripts:&#10;    - SomeScript"
+                                            />
+                                        </ResizablePanel>
                                     </div>
                                     <div role="radiogroup" aria-labelledby="position-label" className="flex items-center space-x-4">
                                         <div className="flex items-center space-x-2">
@@ -336,14 +341,16 @@ const BlockRemoverPage: React.FC = () => {
                                         <label htmlFor="replace-with" className="block text-sm font-medium text-gray-300">Replace With (Optional)</label>
                                         <Tooltip text="If text is provided, the entire block will be replaced with this text (preserving the block's initial indentation). If left empty, the block will be removed entirely." />
                                     </div>
-                                    <textarea
-                                        id="replace-with"
-                                        value={replaceWithText}
-                                        onChange={(e) => setReplaceWithText(e.target.value)}
-                                        placeholder="Leave empty to remove block..."
-                                        className={`w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[160px] resize-y`}
-                                        spellCheck="false"
-                                    />
+                                    <ResizablePanel baseHeight="160px" className="border border-gray-600 rounded-md shadow-sm bg-gray-900 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+                                        <textarea
+                                            id="replace-with"
+                                            value={replaceWithText}
+                                            onChange={(e) => setReplaceWithText(e.target.value)}
+                                            placeholder="Leave empty to remove block..."
+                                            className="w-full h-full bg-transparent text-gray-300 p-2 font-mono text-sm resize-none outline-none"
+                                            spellCheck="false"
+                                        />
+                                    </ResizablePanel>
                                 </div>
                             )}
                         </div>
@@ -389,27 +396,40 @@ const BlockRemoverPage: React.FC = () => {
                         </button>
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".txt,.yaml,.yml,text/plain" />
                     </div>
-                    <textarea 
-                        ref={leftRef}
-                        id="input-text" 
-                        value={inputText} 
-                        onChange={(e) => setInputText(e.target.value)} 
-                        placeholder="Drag & drop a file, or paste your database content here..." 
-                        className={`flex-grow w-full bg-gray-900 text-gray-300 border rounded-md shadow-sm p-4 font-mono text-sm focus:ring-2 focus:ring-indigo-500 transition-all resize-y ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`} 
-                        spellCheck="false"
-                        onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-                        onDrop={(e) => {
-                            e.preventDefault();
-                            setIsDragging(false);
-                            if (e.dataTransfer.files?.[0]) readFile(e.dataTransfer.files[0]);
-                        }}
-                    />
+                    <ResizablePanel 
+                        ref={leftRef as React.Ref<HTMLDivElement>} 
+                        baseHeight="400px" 
+                        isManuallyResized={isManuallyResized} 
+                        className={`flex-grow border rounded-md shadow-sm bg-gray-900 transition-all ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`}
+                    >
+                        <textarea 
+                            id="input-text" 
+                            value={inputText} 
+                            onChange={(e) => setInputText(e.target.value)} 
+                            placeholder="Drag & drop a file, or paste your database content here..." 
+                            className="w-full h-full bg-transparent text-gray-300 p-4 font-mono text-sm resize-none outline-none focus:ring-0" 
+                            spellCheck="false"
+                            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setIsDragging(false);
+                                if (e.dataTransfer.files?.[0]) readFile(e.dataTransfer.files[0]);
+                            }}
+                        />
+                    </ResizablePanel>
                 </div>
                 <div className="flex-1 flex flex-col min-w-[200px]">
                      <label htmlFor="output-text" className="flex-shrink-0 block text-sm font-medium text-gray-300 mb-2">Processed Output</label>
-                    <textarea ref={rightRef} id="output-text" value={outputText} readOnly placeholder="Result will appear here after processing..." className="flex-grow w-full bg-gray-900 text-gray-300 border border-gray-600 rounded-md shadow-sm p-4 font-mono text-sm resize-y" spellCheck="false" />
+                    <ResizablePanel 
+                        ref={rightRef as React.Ref<HTMLDivElement>} 
+                        baseHeight="400px" 
+                        isManuallyResized={isManuallyResized} 
+                        className="flex-grow border border-gray-600 bg-gray-900 rounded-md shadow-sm"
+                    >
+                        <textarea id="output-text" value={outputText} readOnly placeholder="Result will appear here after processing..." className="w-full h-full bg-transparent text-gray-300 p-4 font-mono text-sm resize-none outline-none focus:ring-0" spellCheck="false" />
+                    </ResizablePanel>
                 </div>
             </div>
             

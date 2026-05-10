@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { safeSetLocalStorage } from '../lib/storage';
 import { blockRemoverWorkerScript } from '../workers/blockRemoverScript';
-import { CopyIcon, DownloadIcon, UploadIcon, LoadingSpinner, BlockRemoveIcon } from '../components/Icons';
+import { CopyIcon, DownloadIcon, UploadIcon, LoadingSpinner, ProcessIcon } from '../components/Icons';
 import { Tooltip } from '../components/Tooltip';
 import { ExpandableDescription } from '../components/ExpandableDescription';
 import { useSyncedResize } from '../hooks/useSyncedResize';
 import { CodeEditor } from '../components/CodeEditor';
+import { ResizablePanel } from '../components/ResizablePanel';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 type Mode = 'remove' | 'maintain' | 'addText';
 type MatchMode = 'contains' | 'exact';
@@ -56,6 +58,8 @@ const BlockRemoverPage: React.FC = () => {
 
     const [autoExtendConfig, setAutoExtendConfig] = useState<boolean>(() => getInitialState('blockRemover_autoExtendConfig', false));
     const [autoExtendData, setAutoExtendData] = useState<boolean>(() => getInitialState('blockRemover_autoExtendData', false));
+    const [isOutputEditable, setIsOutputEditable] = useState<boolean>(() => getInitialState('blockRemover_isOutputEditable', false));
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
     // --- State Persistence Effects ---
     useEffect(() => { safeSetLocalStorage('blockRemover_inputText', inputText); }, [inputText]);
@@ -74,14 +78,9 @@ const BlockRemoverPage: React.FC = () => {
     useEffect(() => { safeSetLocalStorage('blockRemover_invertAddTextCondition', invertAddTextCondition); }, [invertAddTextCondition]);
     useEffect(() => { safeSetLocalStorage('blockRemover_autoExtendConfig', autoExtendConfig); }, [autoExtendConfig]);
     useEffect(() => { safeSetLocalStorage('blockRemover_autoExtendData', autoExtendData); }, [autoExtendData]);
+    useEffect(() => { safeSetLocalStorage('blockRemover_isOutputEditable', isOutputEditable); }, [isOutputEditable]);
 
-    const getWrapperStyle = (baseHeightOrAutoExtend: string | boolean, autoExtendParam?: boolean): React.CSSProperties => {
-        const autoExtend = typeof baseHeightOrAutoExtend === 'boolean' ? baseHeightOrAutoExtend : (autoExtendParam || false);
-        const baseHeight = typeof baseHeightOrAutoExtend === 'string' ? baseHeightOrAutoExtend : '120px';
-        if (autoExtend) return { minHeight: baseHeight, flex: '1 1 auto', position: 'relative' };
-        if (isManuallyResized) return { minHeight: baseHeight, flex: 'none', resize: 'vertical', overflow: 'hidden', position: 'relative' };
-        return { minHeight: baseHeight, flex: '1 1 0%', resize: 'vertical', overflow: 'hidden', position: 'relative' };
-    };
+
 
 
 
@@ -92,7 +91,7 @@ const BlockRemoverPage: React.FC = () => {
 
     const isIndentModeActive = indentationFilterMode !== 'none';
 
-    const handleProcess = useCallback(() => {
+    const executeProcess = useCallback(() => {
         setIsProcessing(true);
         setOutputText('');
 
@@ -135,6 +134,14 @@ const BlockRemoverPage: React.FC = () => {
             invertAddTextCondition,
         });
     }, [inputText, keywordsText, blockStartIdentifier, includeIdentifierString, replaceWithText, mode, matchMode, indentationFilterMode, indentationFilterValue, textToAdd, addPosition, addPositionOffset, invertAddTextCondition]);
+
+    const handleProcess = useCallback(() => {
+        if (outputText.trim() !== '') {
+            setIsConfirmModalOpen(true);
+        } else {
+            executeProcess();
+        }
+    }, [outputText, executeProcess]);
 
     const handleCopy = useCallback(() => {
         if (!outputText) return;
@@ -200,15 +207,16 @@ const BlockRemoverPage: React.FC = () => {
                     <Tooltip text="Process data based strictly on its structural indentation, without parsing brackets. A 'block' is identified by a start line, and EVERYTHING under it with greater indentation is treated as ONE block UNTIL the next line with an equal or smaller indentation level." />
                     
                     <div className="ml-auto flex items-center gap-4">
-                        <label className="flex items-center space-x-2 text-sm text-gray-300 cursor-pointer">
-                            <input 
-                                type="checkbox" 
-                                checked={autoExtendConfig} 
-                                onChange={(e) => setAutoExtendConfig(e.target.checked)} 
-                                className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                            />
-                            <span>Auto-Extend Config Boxes</span>
-                        </label>
+                            <label className="flex items-center space-x-2 text-sm text-gray-300 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    checked={autoExtendConfig} 
+                                    onChange={(e) => setAutoExtendConfig(e.target.checked)} 
+                                    className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
+                                <span>Auto-Extend Config Boxes</span>
+                            </label>
+                            <Tooltip text="If enabled, the configuration boxes above (like Keywords, Replace With) will automatically expand their height to fit their content." />
                     </div>
                 </div>
                 
@@ -336,14 +344,9 @@ const BlockRemoverPage: React.FC = () => {
                                     </label>
                                 </div>
                             </div>
-                            <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
-                                <CodeEditor 
-                                    value={keywordsText} 
-                                    onChange={(val) => setKeywordsText(val)} 
-                                    placeholder={"e.g.,\nType: ShadowGear"}
-                                    autoExtend={autoExtendConfig}
-                                />
-                            </div>
+                            <ResizablePanel baseHeight="120px" autoExtend={autoExtendConfig} className="flex-1 min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm">
+                                <CodeEditor value={keywordsText} onChange={(val) => setKeywordsText(val)} placeholder={"e.g.,\nType: ShadowGear"} autoExtend={autoExtendConfig} />
+                            </ResizablePanel>
                         </div>
                         <div>
                             {mode === 'addText' ? (
@@ -355,14 +358,9 @@ const BlockRemoverPage: React.FC = () => {
 The tool automatically adds the block's base indentation to your text. Any additional indentation must be typed manually.
 Example:   New_Key: true" />
                                         </div>
-                                        <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
-                                            <CodeEditor
-                                                value={textToAdd}
-                                                onChange={(val) => setTextToAdd(val)}
-                                                placeholder={"e.g.,\n  Scripts:\n    - SomeScript"}
-                                                autoExtend={autoExtendConfig}
-                                            />
-                                        </div>
+                                        <ResizablePanel baseHeight="120px" autoExtend={autoExtendConfig} className="flex-1 min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm">
+                                            <CodeEditor value={textToAdd} onChange={(val) => setTextToAdd(val)} placeholder={"e.g.,\n  Scripts:\n    - SomeScript"} autoExtend={autoExtendConfig} />
+                                        </ResizablePanel>
                                     </div>
                                     <div role="radiogroup" aria-labelledby="position-label" className="flex flex-wrap items-center gap-6">
                                         <div className="flex items-center space-x-2">
@@ -436,14 +434,9 @@ Example:
 Insert line one
   Insert line two" />
                                     </div>
-                                    <div className="flex-1 flex flex-col min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm overflow-hidden" style={getWrapperStyle('120px', autoExtendConfig)}>
-                                        <CodeEditor 
-                                            value={replaceWithText}
-                                            onChange={(val) => setReplaceWithText(val)}
-                                            placeholder={"e.g.\nInsert line one\n  Insert line two"}
-                                            autoExtend={autoExtendConfig}
-                                        />
-                                    </div>
+                                    <ResizablePanel baseHeight="120px" autoExtend={autoExtendConfig} className="flex-1 min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm">
+                                        <CodeEditor value={replaceWithText} onChange={(val) => setReplaceWithText(val)} placeholder={"Leave empty to remove block..."} autoExtend={autoExtendConfig} />
+                                    </ResizablePanel>
                                 </div>
                             )}
                         </div>
@@ -468,16 +461,19 @@ Insert line one
                                 />
                                 <span>Auto-Extend Views</span>
                             </label>
+                            <Tooltip text="If enabled, the Input Data and Processed Output text boxes will automatically expand their height to fit the content." />
                             <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-3 py-1.5 border border-gray-600 text-xs font-medium rounded-md text-gray-200 bg-[#1e293b] hover:bg-[#334155] transition-all">
                                 <UploadIcon className="h-4 w-4 mr-2" /> Upload File
                             </button>
                         </div>
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".txt,.yaml,.yml,text/plain" />
                     </div>
-                    <div 
-                        ref={leftRef}
-                        className={`flex-1 flex flex-col min-h-[120px] border rounded-md shadow-sm transition-all ${isDragging ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-gray-700'} bg-[#101828]`}
-                        style={getWrapperStyle(autoExtendData)}
+                    <ResizablePanel 
+                        ref={leftRef as React.Ref<HTMLDivElement>} 
+                        baseHeight="120px" 
+                        autoExtend={autoExtendData}
+                        isManuallyResized={isManuallyResized}
+                        className={`flex-1 min-h-[120px] border bg-[#101828] rounded-md shadow-sm transition-all ${isDragging ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-600'}`}
                         onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                         onDragOver={(e) => e.preventDefault()}
                         onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -487,30 +483,33 @@ Insert line one
                             if (e.dataTransfer.files?.[0]) readFile(e.dataTransfer.files[0]);
                         }}
                     >
-                        <CodeEditor 
-                            value={inputText} 
-                            onChange={(val) => setInputText(val)} 
-                            placeholder="Drag & drop a file, or paste your database content here..." 
-                            autoExtend={autoExtendData}
-                        />
-                    </div>
+                        <CodeEditor value={inputText} onChange={(val) => setInputText(val)} placeholder="Drag & drop a file, or paste your database content here..." autoExtend={autoExtendData} />
+                    </ResizablePanel>
                 </div>
                 <div className="flex-1 flex flex-col min-h-0 min-w-[200px]">
-                     <label htmlFor="output-text" className="flex-shrink-0 block text-sm font-medium text-gray-300 mb-2">Processed Output</label>
-                    <div ref={rightRef} className="flex-1 flex flex-col min-h-[120px] border bg-[#101828] border-gray-700 rounded-md shadow-sm" style={getWrapperStyle(autoExtendData)}>
-                        <CodeEditor 
-                            value={outputText} 
-                            editable={false}
-                            placeholder="Result will appear here after processing..." 
-                            autoExtend={autoExtendData}
-                        />
+                    <div className="flex-shrink-0 flex items-center justify-between mb-2">
+                        <label htmlFor="output-text" className="block text-sm font-medium text-gray-300">Processed Output</label>
+                        <div className="flex items-center space-x-2">
+                            <input 
+                                type="checkbox" 
+                                id="output-editable"
+                                checked={isOutputEditable} 
+                                onChange={(e) => setIsOutputEditable(e.target.checked)} 
+                                className="h-3.5 w-3.5 rounded bg-[#101828] border-gray-600 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <label htmlFor="output-editable" className="text-sm text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">Editable</label>
+                            <Tooltip text="If enabled, you can manually edit the processed output before copying or downloading it." />
+                        </div>
                     </div>
+                    <ResizablePanel ref={rightRef as React.Ref<HTMLDivElement>} baseHeight="120px" autoExtend={autoExtendData} isManuallyResized={isManuallyResized} className="flex-1 min-h-[120px] border bg-[#101828] border-gray-700 rounded-md shadow-sm">
+                        <CodeEditor value={outputText} onChange={(val) => setOutputText(val)} editable={isOutputEditable} placeholder="Result will appear here after processing..." autoExtend={autoExtendData} />
+                    </ResizablePanel>
                 </div>
             </div>
             
             <div className="flex-shrink-0 mt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
-                <button onClick={handleProcess} disabled={isProcessButtonDisabled} className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-pink-500 disabled:bg-pink-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                    {isProcessing ? <><LoadingSpinner/>Processing...</> : <><BlockRemoveIcon/>Process Data</>}
+                <button onClick={handleProcess} disabled={isProcessButtonDisabled} className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 disabled:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                    {isProcessing ? <><LoadingSpinner/>Processing...</> : <><ProcessIcon/>Process Data</>}
                 </button>
                 <button onClick={handleCopy} disabled={!outputText} className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-200 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                      <CopyIcon />{copyStatus}
@@ -519,6 +518,14 @@ Insert line one
                     <DownloadIcon />Download File
                 </button>
             </div>
+            
+            <ConfirmModal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setIsConfirmModalOpen(false)}
+                onConfirm={executeProcess}
+                title="Overwrite Output?"
+                message="The Processed Output box already contains text. Are you sure you want to process again? The current output will be completely replaced."
+            />
         </div>
     );
 };
