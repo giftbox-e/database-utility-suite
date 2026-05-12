@@ -235,9 +235,9 @@ const BlockRemoverPage: React.FC = () => {
                         <p className="pt-2 text-gray-300"><strong>Example:</strong> Remove all monster blocks if the block contains the keyword <code>Type: "Boss"</code>. Set the Block Start Identifier to something like <code>  - </code> or <code>  Monster:</code>.</p>
                 </ExpandableDescription>
                 
-                <fieldset disabled={isIndentModeActive} className={`transition-opacity ${isIndentModeActive ? 'opacity-50' : 'opacity-100'}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <fieldset disabled={isIndentModeActive} className={`transition-opacity ${isIndentModeActive ? 'opacity-50' : 'opacity-100'}`}>
                             <div>
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-2">
@@ -290,7 +290,8 @@ const BlockRemoverPage: React.FC = () => {
                                     </label>
                                </div>
                             </div>
-                            <div className="flex items-center gap-2 mt-4 flex-wrap">
+                        </fieldset>
+                        <div className="flex items-center gap-2 mt-4 flex-wrap">
                                 <label htmlFor="indent-filter-mode" className="text-sm font-medium text-gray-300 whitespace-nowrap">Indentation Filter:</label>
                                 <Tooltip text="This mode overrides the Block Processor. It processes the file line by line, removing or keeping lines based only on their indentation level." />
                                 <select 
@@ -316,7 +317,7 @@ const BlockRemoverPage: React.FC = () => {
                                 />
                             </div>
                         </div>
-                        <div>
+                        <fieldset disabled={isIndentModeActive} className={`transition-opacity ${isIndentModeActive ? 'opacity-50' : 'opacity-100'} flex flex-col min-h-0`}>
                             <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center space-x-2">
                                     <label htmlFor="keywords" className="block text-sm font-medium text-gray-300">Keywords</label>
@@ -347,8 +348,8 @@ const BlockRemoverPage: React.FC = () => {
                             <ResizablePanel baseHeight="120px" autoExtend={autoExtendConfig} className="flex-1 min-h-0 border bg-[#101828] border-gray-600 rounded-md shadow-sm">
                                 <CodeEditor value={keywordsText} onChange={(val) => setKeywordsText(val)} placeholder={"e.g.,\nType: ShadowGear"} autoExtend={autoExtendConfig} />
                             </ResizablePanel>
-                        </div>
-                        <div>
+                        </fieldset>
+                        <fieldset disabled={isIndentModeActive} className={`transition-opacity ${isIndentModeActive ? 'opacity-50' : 'opacity-100'} flex flex-col min-h-0`}>
                             {mode === 'addText' ? (
                                 <div className="space-y-3">
                                     <div>
@@ -439,9 +440,8 @@ Insert line one
                                     </ResizablePanel>
                                 </div>
                             )}
-                        </div>
+                        </fieldset>
                     </div>
-                </fieldset>
 
 
 
